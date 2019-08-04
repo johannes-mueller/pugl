@@ -1,16 +1,31 @@
 Checks: >
   *,
+  -*avoid-c-arrays,
   -*magic-numbers,
+  -*non-private-member-variables-in-classes,
   -*uppercase-literal-suffix,
   -android-cloexec-fopen,
   -bugprone-suspicious-string-compare,
   -cert-flp30-c,
   -clang-analyzer-alpha.*,
   -clang-analyzer-security.FloatLoopCounter,
+  -cppcoreguidelines-macro-usage,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-static-cast-downcast,
+  -cppcoreguidelines-pro-type-vararg,
+  -fuchsia-default-arguments-calls,
+  -fuchsia-default-arguments-declarations,
+  -google-runtime-references,
   -hicpp-multiway-paths-covered,
+  -hicpp-no-array-decay,
   -hicpp-signed-bitwise,
+  -hicpp-vararg,
   -llvm-header-guard,
-  -readability-else-after-return
+  -modernize-use-trailing-return-type,
+  -readability-else-after-return,
+  -readability-implicit-bool-conversion,
+  -readability-named-parameter,
 WarningsAsErrors: ''
 HeaderFilterRegex: 'pugl/.*|test/.*'
 FormatStyle: file
