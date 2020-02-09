@@ -19,7 +19,8 @@ VERSION = PUGL_VERSION  # Package version for waf dist
 top     = '.'           # Source directory
 out     = 'build'       # Build directory
 
-gl3_shader_header = '''#version 330 core'''
+gl3_shader_header = '''#version 330 core
+#define UBO(qualifiers) layout(std140)'''
 
 
 def options(ctx):
