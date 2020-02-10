@@ -17,7 +17,7 @@
 #ifndef PUGL_PUGL_STUB_BACKEND_H
 #define PUGL_PUGL_STUB_BACKEND_H
 
-#warning "This header is deprecated, use pugl/pugl_stub.h instead."
+#pragma message("warning: This header is deprecated, use pugl/pugl_stub.h instead.")
 #include "pugl/pugl_stub.h"
 
 #endif // PUGL_PUGL_STUB_BACKEND_H
