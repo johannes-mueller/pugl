@@ -1,4 +1,4 @@
-#version 330 core
+@HEADER@
 
 /* The fragment shader uses the UV coordinates to calculate whether it is in
    the T, R, B, or L border.  These are then mixed with the border color, and

@@ -19,6 +19,8 @@ VERSION = PUGL_VERSION  # Package version for waf dist
 top     = '.'           # Source directory
 out     = 'build'       # Build directory
 
+gl3_shader_header = '''#version 330 core'''
+
 
 def options(ctx):
     ctx.load('compiler_c')
@@ -335,12 +337,11 @@ def build(bld):
             **kwargs)
 
     if bld.env.BUILD_TESTS:
-        for s in ('rect.vert', 'rect.frag'):
-            # Copy shaders to build directory for example programs
+        for s in ['rect.vert', 'rect.frag']:
             bld(features = 'subst',
-                is_copy  = True,
                 source   = 'shaders/%s' % s,
-                target   = 'shaders/%s' % s)
+                target   = 'shaders/%s' % s.replace('.', '.3.'),
+                HEADER   = gl3_shader_header)
 
         if bld.env.HAVE_GL:
             build_example('pugl_embed_demo', ['examples/pugl_embed_demo.c'],

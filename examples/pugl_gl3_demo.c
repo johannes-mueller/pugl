@@ -262,8 +262,8 @@ setupGl(PuglTestApp* app)
 	}
 
 	// Load shader sources
-	char* const vertexSource   = loadShader("shaders/rect.vert");
-	char* const fragmentSource = loadShader("shaders/rect.frag");
+	char* const vertexSource   = loadShader("build/shaders/rect.3.vert");
+	char* const fragmentSource = loadShader("build/shaders/rect.3.frag");
 	if (!vertexSource || !fragmentSource) {
 		logError("Failed to load shader sources\n");
 		return PUGL_FAILURE;
