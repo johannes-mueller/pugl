@@ -20,7 +20,12 @@ top     = '.'           # Source directory
 out     = 'build'       # Build directory
 
 gl3_shader_header = '''#version 330 core
+#define INTER(qualifiers)
 #define UBO(qualifiers) layout(std140)'''
+
+gl4_shader_header = '''#version 420 core
+#define INTER(qualifiers) layout(qualifiers)
+#define UBO(qualifiers) layout(std140, qualifiers) '''
 
 
 def options(ctx):
@@ -343,6 +348,11 @@ def build(bld):
                 source   = 'shaders/%s' % s,
                 target   = 'shaders/%s' % s.replace('.', '.3.'),
                 HEADER   = gl3_shader_header)
+
+            bld(features = 'subst',
+                source   = 'shaders/%s' % s,
+                target   = 'shaders/%s' % s.replace('.', '.4.'),
+                HEADER   = gl4_shader_header)
 
         if bld.env.HAVE_GL:
             build_example('pugl_embed_demo', ['examples/pugl_embed_demo.c'],
