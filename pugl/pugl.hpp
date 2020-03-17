@@ -93,25 +93,25 @@ struct TypedEvent : public Base {
 
 /* Strong types for every event type. */
 
-using ButtonPressEvent   = TypedEvent<PUGL_BUTTON_PRESS, PuglEventButton>;
-using ButtonReleaseEvent = TypedEvent<PUGL_BUTTON_RELEASE, PuglEventButton>;
 using CreateEvent        = TypedEvent<PUGL_CREATE, PuglEventAny>;
 using DestroyEvent       = TypedEvent<PUGL_DESTROY, PuglEventAny>;
+using ConfigureEvent     = TypedEvent<PUGL_CONFIGURE, PuglEventConfigure>;
 using MapEvent           = TypedEvent<PUGL_MAP, PuglEventAny>;
 using UnmapEvent         = TypedEvent<PUGL_UNMAP, PuglEventAny>;
-using ConfigureEvent     = TypedEvent<PUGL_CONFIGURE, PuglEventConfigure>;
 using UpdateEvent        = TypedEvent<PUGL_UPDATE, PuglEventAny>;
 using ExposeEvent        = TypedEvent<PUGL_EXPOSE, PuglEventExpose>;
 using CloseEvent         = TypedEvent<PUGL_CLOSE, PuglEventAny>;
+using FocusInEvent       = TypedEvent<PUGL_FOCUS_IN, PuglEventFocus>;
+using FocusOutEvent      = TypedEvent<PUGL_FOCUS_OUT, PuglEventFocus>;
 using KeyPressEvent      = TypedEvent<PUGL_KEY_PRESS, PuglEventKey>;
 using KeyReleaseEvent    = TypedEvent<PUGL_KEY_RELEASE, PuglEventKey>;
 using TextEvent          = TypedEvent<PUGL_TEXT, PuglEventText>;
-using EnterEvent         = TypedEvent<PUGL_ENTER_NOTIFY, PuglEventCrossing>;
-using LeaveEvent         = TypedEvent<PUGL_LEAVE_NOTIFY, PuglEventCrossing>;
-using MotionEvent        = TypedEvent<PUGL_MOTION_NOTIFY, PuglEventMotion>;
+using EnterEvent         = TypedEvent<PUGL_POINTER_IN, PuglEventCrossing>;
+using LeaveEvent         = TypedEvent<PUGL_POINTER_OUT, PuglEventCrossing>;
+using ButtonPressEvent   = TypedEvent<PUGL_BUTTON_PRESS, PuglEventButton>;
+using ButtonReleaseEvent = TypedEvent<PUGL_BUTTON_RELEASE, PuglEventButton>;
+using MotionEvent        = TypedEvent<PUGL_MOTION, PuglEventMotion>;
 using ScrollEvent        = TypedEvent<PUGL_SCROLL, PuglEventScroll>;
-using FocusInEvent       = TypedEvent<PUGL_FOCUS_IN, PuglEventFocus>;
-using FocusOutEvent      = TypedEvent<PUGL_FOCUS_OUT, PuglEventFocus>;
 using ClientEvent        = TypedEvent<PUGL_CLIENT, PuglEventClient>;
 using TimerEvent         = TypedEvent<PUGL_TIMER, PuglEventTimer>;
 
@@ -363,25 +363,25 @@ private:
 	   Note that the indices here must correspond to PuglEventType.
 	*/
 	using EventFuncs = std::tuple<TypedEventFunc<NothingEvent>,
-	                              TypedEventFunc<ButtonPressEvent>,
-	                              TypedEventFunc<ButtonReleaseEvent>,
 	                              TypedEventFunc<CreateEvent>,
 	                              TypedEventFunc<DestroyEvent>,
+	                              TypedEventFunc<ConfigureEvent>,
 	                              TypedEventFunc<MapEvent>,
 	                              TypedEventFunc<UnmapEvent>,
 	                              TypedEventFunc<UpdateEvent>,
-	                              TypedEventFunc<ConfigureEvent>,
 	                              TypedEventFunc<ExposeEvent>,
 	                              TypedEventFunc<CloseEvent>,
+	                              TypedEventFunc<FocusInEvent>,
+	                              TypedEventFunc<FocusOutEvent>,
 	                              TypedEventFunc<KeyPressEvent>,
 	                              TypedEventFunc<KeyReleaseEvent>,
 	                              TypedEventFunc<TextEvent>,
 	                              TypedEventFunc<EnterEvent>,
 	                              TypedEventFunc<LeaveEvent>,
+	                              TypedEventFunc<ButtonPressEvent>,
+	                              TypedEventFunc<ButtonReleaseEvent>,
 	                              TypedEventFunc<MotionEvent>,
 	                              TypedEventFunc<ScrollEvent>,
-	                              TypedEventFunc<FocusInEvent>,
-	                              TypedEventFunc<FocusOutEvent>,
 	                              TypedEventFunc<ClientEvent>,
 	                              TypedEventFunc<TimerEvent>>;
 
@@ -399,26 +399,20 @@ private:
 		switch (event.type) {
 		case PUGL_NOTHING:
 			return Status::success;
-		case PUGL_BUTTON_PRESS:
-			return dispatchTypedEvent(
-			    static_cast<const ButtonPressEvent&>(event.button));
-		case PUGL_BUTTON_RELEASE:
-			return dispatchTypedEvent(
-			    static_cast<const ButtonReleaseEvent&>(event.button));
 		case PUGL_CREATE:
 			return dispatchTypedEvent(
 			    static_cast<const CreateEvent&>(event.any));
 		case PUGL_DESTROY:
 			return dispatchTypedEvent(
 			    static_cast<const DestroyEvent&>(event.any));
+		case PUGL_CONFIGURE:
+			return dispatchTypedEvent(
+			    static_cast<const ConfigureEvent&>(event.configure));
 		case PUGL_MAP:
 			return dispatchTypedEvent(static_cast<const MapEvent&>(event.any));
 		case PUGL_UNMAP:
 			return dispatchTypedEvent(
 			    static_cast<const UnmapEvent&>(event.any));
-		case PUGL_CONFIGURE:
-			return dispatchTypedEvent(
-			    static_cast<const ConfigureEvent&>(event.configure));
 		case PUGL_UPDATE:
 			return dispatchTypedEvent(
 			    static_cast<const UpdateEvent&>(event.any));
@@ -428,6 +422,12 @@ private:
 		case PUGL_CLOSE:
 			return dispatchTypedEvent(
 			    static_cast<const CloseEvent&>(event.any));
+		case PUGL_FOCUS_IN:
+			return dispatchTypedEvent(
+			    static_cast<const FocusInEvent&>(event.focus));
+		case PUGL_FOCUS_OUT:
+			return dispatchTypedEvent(
+			    static_cast<const FocusOutEvent&>(event.focus));
 		case PUGL_KEY_PRESS:
 			return dispatchTypedEvent(
 			    static_cast<const KeyPressEvent&>(event.key));
@@ -437,24 +437,24 @@ private:
 		case PUGL_TEXT:
 			return dispatchTypedEvent(
 			    static_cast<const TextEvent&>(event.text));
-		case PUGL_ENTER_NOTIFY:
+		case PUGL_POINTER_IN:
 			return dispatchTypedEvent(
 			    static_cast<const EnterEvent&>(event.crossing));
-		case PUGL_LEAVE_NOTIFY:
+		case PUGL_POINTER_OUT:
 			return dispatchTypedEvent(
 			    static_cast<const LeaveEvent&>(event.crossing));
-		case PUGL_MOTION_NOTIFY:
+		case PUGL_BUTTON_PRESS:
+			return dispatchTypedEvent(
+			    static_cast<const ButtonPressEvent&>(event.button));
+		case PUGL_BUTTON_RELEASE:
+			return dispatchTypedEvent(
+			    static_cast<const ButtonReleaseEvent&>(event.button));
+		case PUGL_MOTION:
 			return dispatchTypedEvent(
 			    static_cast<const MotionEvent&>(event.motion));
 		case PUGL_SCROLL:
 			return dispatchTypedEvent(
 			    static_cast<const ScrollEvent&>(event.scroll));
-		case PUGL_FOCUS_IN:
-			return dispatchTypedEvent(
-			    static_cast<const FocusInEvent&>(event.focus));
-		case PUGL_FOCUS_OUT:
-			return dispatchTypedEvent(
-			    static_cast<const FocusOutEvent&>(event.focus));
 		case PUGL_CLIENT:
 			return dispatchTypedEvent(
 			    static_cast<const ClientEvent&>(event.client));
