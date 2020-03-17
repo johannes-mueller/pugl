@@ -129,20 +129,24 @@ getProcAddress(const char* name)
 
 class World;
 
+/**
+   A `std::chrono` compatible clock that uses Pugl time.
+*/
 class Clock
 {
 public:
-	using rep        = double;
-	using period     = std::ratio<1>;
-	using duration   = std::chrono::duration<double>;
-	using time_point = std::chrono::time_point<Clock>;
+	using rep        = double;                         ///< Time representation
+	using duration   = std::chrono::duration<double>;  ///< Duration in seconds
+	using time_point = std::chrono::time_point<Clock>; ///< A Pugl time point
 
-	static constexpr bool is_steady = true;
+	static constexpr bool is_steady = true; ///< Steady clock flag, always true
 
+	/// Construct a clock that uses time from puglGetTime()
 	explicit Clock(World& world)
 	    : _world{world}
 	{}
 
+	/// Return the current time
 	time_point now() const;
 
 private:
@@ -311,9 +315,46 @@ template<typename Data>
 class View : public ViewBase
 {
 public:
+	explicit View(World& world)
+	    : ViewBase{world}
+	    , _data{}
+	{
+		puglSetEventFunc(_view, _onEvent);
+	}
+
+	View(World& world, Data data)
+	    : ViewBase{world}
+	    , _data{data}
+	{
+		puglSetEventFunc(_view, _onEvent);
+	}
+
 	template<class E>
 	using TypedEventFunc = std::function<pugl::Status(View&, const E&)>;
 
+	template<class HandledEvent>
+	Status setEventFunc(TypedEventFunc<HandledEvent> handler)
+	{
+		std::get<HandledEvent::type>(_eventFuncs) = handler;
+
+		return Status::success;
+	}
+
+	template<class E>
+	using TypedEventHandler = pugl::Status (*)(View&, const E&);
+
+	template<class HandledEvent>
+	Status setEventFunc(TypedEventHandler<HandledEvent> handler)
+	{
+		std::get<HandledEvent::type>(_eventFuncs) = handler;
+
+		return Status::success;
+	}
+
+	const Data& getData() const { return _data; }
+	Data&       getData() { return _data; }
+
+private:
 	using NothingEvent = TypedEvent<PUGL_NOTHING, PuglEvent>;
 
 	/**
@@ -346,41 +387,6 @@ public:
 
 	using EventFunc = std::function<pugl::Status(View&, const PuglEvent&)>;
 
-	explicit View(World& world)
-	    : ViewBase{world}
-	    , _data{}
-	{
-		puglSetEventFunc(_view, _onEvent);
-	}
-
-	View(World& world, Data data)
-	    : ViewBase{world}
-	    , _data{data}
-	{
-		puglSetEventFunc(_view, _onEvent);
-	}
-
-	template<class HandledEvent>
-	Status setEventFunc(
-	    std::function<pugl::Status(View&, const HandledEvent&)> handler)
-	{
-		std::get<HandledEvent::type>(_eventFuncs) = handler;
-
-		return Status::success;
-	}
-
-	template<class HandledEvent>
-	Status setEventFunc(pugl::Status (*handler)(View&, const HandledEvent&))
-	{
-		std::get<HandledEvent::type>(_eventFuncs) = handler;
-
-		return Status::success;
-	}
-
-	const Data& getData() const { return _data; }
-	Data&       getData() { return _data; }
-
-private:
 	static PuglStatus _onEvent(PuglView* view, const PuglEvent* event) noexcept
 	{
 		View* self = static_cast<View*>(puglGetHandle(view));
