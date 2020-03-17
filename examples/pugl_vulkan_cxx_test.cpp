@@ -24,9 +24,6 @@
 #	define VULKAN_HPP_DEFAULT_DISPATCHER (*(vk::DispatchLoaderStatic*)nullptr)
 #endif
 
-#undef min
-#undef max
-
 #include "demo_utils.h"
 #include "rects.h"
 #include "test/test_utils.h"
