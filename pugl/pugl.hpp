@@ -104,6 +104,7 @@ struct Event final : Base {
 using Mod          = PuglMod;          ///< @copydoc PuglMod
 using Mods         = PuglMods;         ///< @copydoc PuglMods
 using Key          = PuglKey;          ///< @copydoc PuglKey
+using Cursor       = PuglCursor;       ///< @copydoc PuglCursor
 using EventType    = PuglEventType;    ///< @copydoc PuglEventType
 using EventFlag    = PuglEventFlag;    ///< @copydoc PuglEventFlag
 using EventFlags   = PuglEventFlags;   ///< @copydoc PuglEventFlags
@@ -512,6 +513,12 @@ public:
 	Status setBackend(const PuglBackend* backend)
 	{
 		return static_cast<Status>(puglSetBackend(cobj(), backend));
+	}
+
+	/// @copydoc puglSetCursor
+	Status setCursor(const PuglCursor cursor)
+	{
+		return static_cast<Status>(puglSetCursor(cobj(), cursor));
 	}
 
 	/// @copydoc puglRequestAttention

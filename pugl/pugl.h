@@ -1124,6 +1124,22 @@ puglPostRedisplayRect(PuglView* view, PuglRect rect);
 */
 
 /**
+   A mouse cursor type.
+
+   This is a portable subset of mouse cursors that exist on X11, MacOS, and
+   Windows.
+*/
+typedef enum {
+	PUGL_CURSOR_ARROW,     ///< Default pointing arrow
+	PUGL_CURSOR_IBEAM,     ///< I-Beam for text entry
+	PUGL_CURSOR_CROSSHAIR, ///< Cross-hair
+	PUGL_CURSOR_HAND,      ///< Hand with a pointing finger
+	PUGL_CURSOR_NO,        ///< Operation not allowed
+	PUGL_CURSOR_HRESIZE,   ///< Horizontal resize
+	PUGL_CURSOR_VRESIZE,   ///< Vertical resize
+} PuglCursor;
+
+/**
    Grab the keyboard input focus.
 */
 PUGL_API PuglStatus
@@ -1165,6 +1181,18 @@ puglSetClipboard(PuglView*   view,
 */
 PUGL_API const void*
 puglGetClipboard(PuglView* view, const char** type, size_t* len);
+
+/**
+   Set the mouse cursor.
+
+   This changes the system cursor that is displayed when the pointer is inside
+   the view.
+
+   @return #PUGL_SUCCESS, #PUGL_FAILURE if setting the cursor is not supported
+   on this system, or an error code.
+ */
+PUGL_API PuglStatus
+puglSetCursor(PuglView* view, PuglCursor cursor);
 
 /**
    Request user attention.
