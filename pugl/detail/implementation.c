@@ -106,17 +106,18 @@ puglSetDefaultHints(PuglHints hints)
 	hints[PUGL_USE_COMPAT_PROFILE]    = PUGL_TRUE;
 	hints[PUGL_CONTEXT_VERSION_MAJOR] = 2;
 	hints[PUGL_CONTEXT_VERSION_MINOR] = 0;
-	hints[PUGL_RED_BITS]              = 4;
-	hints[PUGL_GREEN_BITS]            = 4;
-	hints[PUGL_BLUE_BITS]             = 4;
-	hints[PUGL_ALPHA_BITS]            = 4;
-	hints[PUGL_DEPTH_BITS]            = 24;
-	hints[PUGL_STENCIL_BITS]          = 8;
+	hints[PUGL_RED_BITS]              = 8;
+	hints[PUGL_GREEN_BITS]            = 8;
+	hints[PUGL_BLUE_BITS]             = 8;
+	hints[PUGL_ALPHA_BITS]            = 8;
+	hints[PUGL_DEPTH_BITS]            = 0;
+	hints[PUGL_STENCIL_BITS]          = 0;
 	hints[PUGL_SAMPLES]               = 0;
 	hints[PUGL_DOUBLE_BUFFER]         = PUGL_TRUE;
 	hints[PUGL_SWAP_INTERVAL]         = PUGL_DONT_CARE;
 	hints[PUGL_RESIZABLE]             = PUGL_FALSE;
 	hints[PUGL_IGNORE_KEY_REPEAT]     = PUGL_FALSE;
+	hints[PUGL_REFRESH_RATE]          = PUGL_DONT_CARE;
 }
 
 PuglWorld*
@@ -241,12 +242,35 @@ puglGetWorld(PuglView* view)
 PuglStatus
 puglSetViewHint(PuglView* view, PuglViewHint hint, int value)
 {
+	if (value == PUGL_DONT_CARE) {
+		switch (hint) {
+		case PUGL_USE_COMPAT_PROFILE:
+		case PUGL_USE_DEBUG_CONTEXT:
+		case PUGL_CONTEXT_VERSION_MAJOR:
+		case PUGL_CONTEXT_VERSION_MINOR:
+		case PUGL_SWAP_INTERVAL:
+			return PUGL_BAD_PARAMETER;
+		default:
+			break;
+		}
+	}
+
 	if (hint < PUGL_NUM_VIEW_HINTS) {
 		view->hints[hint] = value;
 		return PUGL_SUCCESS;
 	}
 
 	return PUGL_BAD_PARAMETER;
+}
+
+int
+puglGetViewHint(const PuglView* view, PuglViewHint hint)
+{
+	if (hint < PUGL_NUM_VIEW_HINTS) {
+		return view->hints[hint];
+	}
+
+	return PUGL_DONT_CARE;
 }
 
 PuglStatus
@@ -311,7 +335,7 @@ PuglStatus
 puglEnterContext(PuglView* view, bool drawing)
 {
 	const PuglEventExpose expose = {
-	        PUGL_EXPOSE, 0, 0, 0, view->frame.width, view->frame.height, 0};
+	    PUGL_EXPOSE, 0, 0.0, 0.0, view->frame.width, view->frame.height};
 
 	view->backend->enter(view, drawing ? &expose : NULL);
 
@@ -322,7 +346,7 @@ PuglStatus
 puglLeaveContext(PuglView* view, bool drawing)
 {
 	const PuglEventExpose expose = {
-	        PUGL_EXPOSE, 0, 0, 0, view->frame.width, view->frame.height, 0};
+	    PUGL_EXPOSE, 0, 0.0, 0.0, view->frame.width, view->frame.height};
 
 	view->backend->leave(view, drawing ? &expose : NULL);
 

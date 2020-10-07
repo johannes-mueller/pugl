@@ -221,7 +221,8 @@ typedef enum {
    Common flags for all event types.
 */
 typedef enum {
-	PUGL_IS_SEND_EVENT = 1 ///< Event is synthetic
+	PUGL_IS_SEND_EVENT = 1, ///< Event is synthetic
+	PUGL_IS_HINT       = 2  ///< Event is a hint (not direct user input)
 } PuglEventFlag;
 
 /**
@@ -237,6 +238,22 @@ typedef enum {
 	PUGL_CROSSING_GRAB,   ///< Crossing due to a grab
 	PUGL_CROSSING_UNGRAB  ///< Crossing due to a grab release
 } PuglCrossingMode;
+
+/**
+   Scroll direction.
+
+   Describes the direction of a #PuglEventScroll along with whether the scroll
+   is a "smooth" scroll.  The discrete directions are for devices like mouse
+   wheels with constrained axes, while a smooth scroll is for those with
+   arbitrary scroll direction freedom, like some touchpads.
+*/
+typedef enum {
+	PUGL_SCROLL_UP,    ///< Scroll up
+	PUGL_SCROLL_DOWN,  ///< Scroll down
+	PUGL_SCROLL_LEFT,  ///< Scroll left
+	PUGL_SCROLL_RIGHT, ///< Scroll right
+	PUGL_SCROLL_SMOOTH ///< Smooth scroll in any direction
+} PuglScrollDirection;
 
 /**
    Common header for all event structs.
@@ -333,7 +350,6 @@ typedef struct {
 	double         y;      ///< View-relative Y coordinate
 	double         width;  ///< Width of exposed region
 	double         height; ///< Height of exposed region
-	int            count;  ///< Number of expose events to follow
 } PuglEventExpose;
 
 /**
@@ -353,9 +369,9 @@ typedef PuglEventAny PuglEventClose;
    view with the keyboard focus will receive any key press or release events.
 */
 typedef struct {
-	PuglEventType  type;  ///< #PUGL_FOCUS_IN or #PUGL_FOCUS_OUT
-	PuglEventFlags flags; ///< Bitwise OR of #PuglEventFlag values
-	bool           grab;  ///< True iff this is a grab/ungrab event
+	PuglEventType    type;  ///< #PUGL_FOCUS_IN or #PUGL_FOCUS_OUT
+	PuglEventFlags   flags; ///< Bitwise OR of #PuglEventFlag values
+	PuglCrossingMode mode;  ///< Reason for focus change
 } PuglEventFocus;
 
 /**
@@ -459,8 +475,6 @@ typedef struct {
 	double         xRoot;  ///< Root-relative X coordinate
 	double         yRoot;  ///< Root-relative Y coordinate
 	PuglMods       state;  ///< Bitwise OR of #PuglMod flags
-	bool           isHint; ///< True iff this event is a motion hint
-	bool           focus;  ///< True iff this is the focused view
 } PuglEventMotion;
 
 /**
@@ -473,16 +487,17 @@ typedef struct {
    gracefully.
 */
 typedef struct {
-	PuglEventType  type;  ///< #PUGL_SCROLL
-	PuglEventFlags flags; ///< Bitwise OR of #PuglEventFlag values
-	double         time;  ///< Time in seconds
-	double         x;     ///< View-relative X coordinate
-	double         y;     ///< View-relative Y coordinate
-	double         xRoot; ///< Root-relative X coordinate
-	double         yRoot; ///< Root-relative Y coordinate
-	PuglMods       state; ///< Bitwise OR of #PuglMod flags
-	double         dx;    ///< Scroll X distance in lines
-	double         dy;    ///< Scroll Y distance in lines
+	PuglEventType       type;      ///< #PUGL_SCROLL
+	PuglEventFlags      flags;     ///< Bitwise OR of #PuglEventFlag values
+	double              time;      ///< Time in seconds
+	double              x;         ///< View-relative X coordinate
+	double              y;         ///< View-relative Y coordinate
+	double              xRoot;     ///< Root-relative X coordinate
+	double              yRoot;     ///< Root-relative Y coordinate
+	PuglMods            state;     ///< Bitwise OR of #PuglMod flags
+	PuglScrollDirection direction; ///< Scroll direction
+	double              dx;        ///< Scroll X distance in lines
+	double              dy;        ///< Scroll Y distance in lines
 } PuglEventScroll;
 
 /**
@@ -826,6 +841,7 @@ typedef enum {
 	PUGL_SWAP_INTERVAL,         ///< Number of frames between buffer swaps
 	PUGL_RESIZABLE,             ///< True if view should be resizable
 	PUGL_IGNORE_KEY_REPEAT,     ///< True if key repeat events are ignored
+	PUGL_REFRESH_RATE,          ///< Refresh rate in Hz
 
 	PUGL_NUM_VIEW_HINTS
 } PuglViewHint;
@@ -922,6 +938,16 @@ puglSetEventFunc(PuglView* view, PuglEventFunc eventFunc);
 */
 PUGL_API PuglStatus
 puglSetViewHint(PuglView* view, PuglViewHint hint, int value);
+
+/**
+   Get the value for a view hint.
+
+   If the view has been realized, this can be used to get the actual value of a
+   hint which was initially set to PUGL_DONT_CARE, or has been adjusted from
+   the suggested value.
+*/
+PUGL_API int
+puglGetViewHint(const PuglView* view, PuglViewHint hint);
 
 /**
    @}

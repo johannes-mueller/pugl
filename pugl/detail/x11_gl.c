@@ -19,11 +19,11 @@
    @brief OpenGL graphics backend for X11.
 */
 
+#include "pugl/detail/stub.h"
 #include "pugl/detail/types.h"
 #include "pugl/detail/x11.h"
 #include "pugl/pugl.h"
 #include "pugl/pugl_gl.h"
-#include "pugl/pugl_stub.h"
 
 #include <GL/glx.h>
 #include <X11/X.h>
@@ -37,7 +37,6 @@
 typedef struct {
 	GLXFBConfig fb_config;
 	GLXContext  ctx;
-	int         double_buffered;
 } PuglX11GlSurface;
 
 static int
@@ -72,7 +71,7 @@ puglX11GlConfigure(PuglView* view)
 		GLX_X_VISUAL_TYPE, GLX_TRUE_COLOR,
 		GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
 		GLX_RENDER_TYPE,   GLX_RGBA_BIT,
-		GLX_SAMPLES,       view->hints[PUGL_SAMPLES],
+		GLX_SAMPLES,       puglX11GlHintValue(view->hints[PUGL_SAMPLES]),
 		GLX_RED_SIZE,      puglX11GlHintValue(view->hints[PUGL_RED_BITS]),
 		GLX_GREEN_SIZE,    puglX11GlHintValue(view->hints[PUGL_GREEN_BITS]),
 		GLX_BLUE_SIZE,     puglX11GlHintValue(view->hints[PUGL_BLUE_BITS]),
@@ -92,7 +91,24 @@ puglX11GlConfigure(PuglView* view)
 	surface->fb_config = fbc[0];
 	impl->vi           = glXGetVisualFromFBConfig(impl->display, fbc[0]);
 
-	char msg[128];
+	view->hints[PUGL_RED_BITS] = puglX11GlGetAttrib(
+	    display, fbc[0], GLX_RED_SIZE);
+	view->hints[PUGL_GREEN_BITS] = puglX11GlGetAttrib(
+	    display, fbc[0], GLX_GREEN_SIZE);
+	view->hints[PUGL_BLUE_BITS] = puglX11GlGetAttrib(
+	    display, fbc[0], GLX_BLUE_SIZE);
+	view->hints[PUGL_ALPHA_BITS] = puglX11GlGetAttrib(
+	    display, fbc[0], GLX_ALPHA_SIZE);
+	view->hints[PUGL_DEPTH_BITS] = puglX11GlGetAttrib(
+	    display, fbc[0], GLX_DEPTH_SIZE);
+	view->hints[PUGL_STENCIL_BITS] = puglX11GlGetAttrib(
+	    display, fbc[0], GLX_STENCIL_SIZE);
+	view->hints[PUGL_SAMPLES] = puglX11GlGetAttrib(
+	    display, fbc[0], GLX_SAMPLES);
+	view->hints[PUGL_DOUBLE_BUFFER] = puglX11GlGetAttrib(
+	    display, fbc[0], GLX_DOUBLEBUFFER);
+
+	char msg[256];
 
 	snprintf(
 	    msg,
@@ -110,6 +126,26 @@ puglX11GlConfigure(PuglView* view)
 	view->world->logFunc(view->world, PUGL_LOG_LEVEL_INFO, msg);
 
 	XFree(fbc);
+
+	return PUGL_SUCCESS;
+}
+
+static PuglStatus
+puglX11GlEnter(PuglView* view, const PuglEventExpose* PUGL_UNUSED(expose))
+{
+	PuglX11GlSurface* surface = (PuglX11GlSurface*)view->impl->surface;
+	glXMakeCurrent(view->impl->display, view->impl->win, surface->ctx);
+	return PUGL_SUCCESS;
+}
+
+static PuglStatus
+puglX11GlLeave(PuglView* view, const PuglEventExpose* expose)
+{
+	if (expose && view->hints[PUGL_DOUBLE_BUFFER]) {
+		glXSwapBuffers(view->impl->display, view->impl->win);
+	}
+
+	glXMakeCurrent(view->impl->display, None, NULL);
 
 	return PUGL_SUCCESS;
 }
@@ -153,13 +189,20 @@ puglX11GlCreate(PuglView* view)
 
 	const int swapInterval = view->hints[PUGL_SWAP_INTERVAL];
 	if (glXSwapIntervalEXT && swapInterval != PUGL_DONT_CARE) {
+		puglX11GlEnter(view, NULL);
 		glXSwapIntervalEXT(display, impl->win, swapInterval);
+		puglX11GlLeave(view, NULL);
 	}
 
 	glXGetConfig(impl->display,
 	             impl->vi,
 	             GLX_DOUBLEBUFFER,
-	             &surface->double_buffered);
+	             &view->hints[PUGL_DOUBLE_BUFFER]);
+
+	glXQueryDrawable(display,
+	                 impl->win,
+	                 GLX_SWAP_INTERVAL_EXT,
+	                 (unsigned int*)&view->hints[PUGL_SWAP_INTERVAL]);
 
 	return PUGL_SUCCESS;
 }
@@ -173,28 +216,6 @@ puglX11GlDestroy(PuglView* view)
 		free(surface);
 		view->impl->surface = NULL;
 	}
-	return PUGL_SUCCESS;
-}
-
-static PuglStatus
-puglX11GlEnter(PuglView* view, const PuglEventExpose* PUGL_UNUSED(expose))
-{
-	PuglX11GlSurface* surface = (PuglX11GlSurface*)view->impl->surface;
-	glXMakeCurrent(view->impl->display, view->impl->win, surface->ctx);
-	return PUGL_SUCCESS;
-}
-
-static PuglStatus
-puglX11GlLeave(PuglView* view, const PuglEventExpose* expose)
-{
-	PuglX11GlSurface* surface = (PuglX11GlSurface*)view->impl->surface;
-
-	if (expose && surface->double_buffered) {
-		glXSwapBuffers(view->impl->display, view->impl->win);
-	}
-
-	glXMakeCurrent(view->impl->display, None, NULL);
-
 	return PUGL_SUCCESS;
 }
 

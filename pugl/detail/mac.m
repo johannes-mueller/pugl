@@ -225,7 +225,6 @@ updateViewRect(PuglView* view)
 		rect.origin.y * scaleFactor,
 		rect.size.width * scaleFactor,
 		rect.size.height * scaleFactor,
-		0
 	};
 
 	puglDispatchEvent(puglview, (const PuglEvent*)&ev);
@@ -380,8 +379,6 @@ handleCrossing(PuglWrapperView* view, NSEvent* event, const PuglEventType type)
 		rloc.x,
 		[[NSScreen mainScreen] frame].size.height - rloc.y,
 		getModifiers(event),
-		0,
-		1,
 	};
 
 	puglDispatchEvent(puglview, (const PuglEvent*)&ev);
@@ -462,19 +459,32 @@ handleCrossing(PuglWrapperView* view, NSEvent* event, const PuglEventType type)
 
 - (void) scrollWheel:(NSEvent*)event
 {
-	const NSPoint         wloc = [self eventLocation:event];
-	const NSPoint         rloc = [NSEvent mouseLocation];
-	const PuglEventScroll ev   = {
-		PUGL_SCROLL,
-		0,
-		[event timestamp],
-		wloc.x,
-		wloc.y,
-		rloc.x,
-		[[NSScreen mainScreen] frame].size.height - rloc.y,
-		getModifiers(event),
-		[event scrollingDeltaX],
-		[event scrollingDeltaY],
+	const NSPoint             wloc = [self eventLocation:event];
+	const NSPoint             rloc = [NSEvent mouseLocation];
+	const double              dx   = [event scrollingDeltaX];
+	const double              dy   = [event scrollingDeltaY];
+	const PuglScrollDirection dir =
+	    ((dx == 0.0 && dy > 0.0)
+	         ? PUGL_SCROLL_UP
+	         : ((dx == 0.0 && dy < 0.0)
+	                ? PUGL_SCROLL_DOWN
+	                : ((dy == 0.0 && dx > 0.0)
+	                       ? PUGL_SCROLL_RIGHT
+	                       : ((dy == 0.0 && dx < 0.0) ? PUGL_SCROLL_LEFT
+	                                                  : PUGL_SCROLL_SMOOTH))));
+
+	const PuglEventScroll ev = {
+	    PUGL_SCROLL,
+	    0,
+	    [event timestamp],
+	    wloc.x,
+	    wloc.y,
+	    rloc.x,
+	    [[NSScreen mainScreen] frame].size.height - rloc.y,
+	    getModifiers(event),
+	    [event hasPreciseScrollingDeltas] ? PUGL_SCROLL_SMOOTH : dir,
+	    dx,
+	    dy,
 	};
 
 	puglDispatchEvent(puglview, (const PuglEvent*)&ev);
@@ -780,7 +790,7 @@ handleCrossing(PuglWrapperView* view, NSEvent* event, const PuglEventType type)
 	(void)notification;
 
 	PuglEvent ev = {{PUGL_FOCUS_IN, 0}};
-	ev.focus.grab = false;
+	ev.focus.mode = PUGL_CROSSING_NORMAL;
 	puglDispatchEvent(window->puglview, &ev);
 }
 
@@ -789,7 +799,7 @@ handleCrossing(PuglWrapperView* view, NSEvent* event, const PuglEventType type)
 	(void)notification;
 
 	PuglEvent ev = {{PUGL_FOCUS_OUT, 0}};
-	ev.focus.grab = false;
+	ev.focus.mode = PUGL_CROSSING_NORMAL;
 	puglDispatchEvent(window->puglview, &ev);
 }
 
@@ -855,6 +865,40 @@ puglRealize(PuglView* view)
 	PuglInternals*        impl        = view->impl;
 	const NSScreen* const screen      = [NSScreen mainScreen];
 	const double          scaleFactor = [screen backingScaleFactor];
+
+	// Getting depth from the display mode seems tedious, just set usual values
+	if (view->hints[PUGL_RED_BITS] == PUGL_DONT_CARE) {
+		view->hints[PUGL_RED_BITS] = 8;
+	}
+	if (view->hints[PUGL_BLUE_BITS] == PUGL_DONT_CARE) {
+		view->hints[PUGL_BLUE_BITS] = 8;
+	}
+	if (view->hints[PUGL_GREEN_BITS] == PUGL_DONT_CARE) {
+		view->hints[PUGL_GREEN_BITS] = 8;
+	}
+	if (view->hints[PUGL_ALPHA_BITS] == PUGL_DONT_CARE) {
+		view->hints[PUGL_ALPHA_BITS] = 8;
+	}
+
+	CGDirectDisplayID displayId = CGMainDisplayID();
+	CGDisplayModeRef  mode      = CGDisplayCopyDisplayMode(displayId);
+
+	// Try to get refresh rate from mode (usually fails)
+	view->hints[PUGL_REFRESH_RATE] = (int)CGDisplayModeGetRefreshRate(mode);
+
+	CGDisplayModeRelease(mode);
+	if (view->hints[PUGL_REFRESH_RATE] == 0) {
+		// Get refresh rate from a display link
+		// TODO: Keep and actually use the display link for something?
+		CVDisplayLinkRef link;
+		CVDisplayLinkCreateWithCGDisplay(displayId, &link);
+
+		const CVTime p = CVDisplayLinkGetNominalOutputVideoRefreshPeriod(link);
+		const double r = p.timeScale / (double)p.timeValue;
+		view->hints[PUGL_REFRESH_RATE] = (int)lrint(r);
+
+		CVDisplayLinkRelease(link);
+	}
 
 	if (view->frame.width == 0.0 && view->frame.height == 0.0) {
 		if (view->defaultWidth == 0.0 && view->defaultHeight == 0.0) {

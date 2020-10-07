@@ -22,6 +22,7 @@
 #include "pugl/detail/win.h"
 
 #include "pugl/detail/implementation.h"
+#include "pugl/detail/stub.h"
 #include "pugl/pugl.h"
 #include "pugl/pugl_stub.h"
 
@@ -165,10 +166,24 @@ puglRealize(PuglView* view)
 {
 	PuglInternals* impl = view->impl;
 
+	// Getting depth from the display mode seems tedious, just set usual values
+	if (view->hints[PUGL_RED_BITS] == PUGL_DONT_CARE) {
+		view->hints[PUGL_RED_BITS] = 8;
+	}
+	if (view->hints[PUGL_BLUE_BITS] == PUGL_DONT_CARE) {
+		view->hints[PUGL_BLUE_BITS] = 8;
+	}
+	if (view->hints[PUGL_GREEN_BITS] == PUGL_DONT_CARE) {
+		view->hints[PUGL_GREEN_BITS] = 8;
+	}
+	if (view->hints[PUGL_ALPHA_BITS] == PUGL_DONT_CARE) {
+		view->hints[PUGL_ALPHA_BITS] = 8;
+	}
+
 	// Get refresh rate for resize draw timer
 	DEVMODEA devMode = {0};
 	EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &devMode);
-	view->impl->refreshRate = devMode.dmDisplayFrequency;
+	view->hints[PUGL_REFRESH_RATE] = (int)devMode.dmDisplayFrequency;
 
 	// Register window class if necessary
 	if (!puglRegisterWindowClass(view->world->className)) {
@@ -577,7 +592,7 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 		view->impl->resizing = true;
 		SetTimer(view->impl->hwnd,
 		         PUGL_RESIZE_TIMER_ID,
-		         1000 / view->impl->refreshRate,
+		         1000 / (UINT)view->hints[PUGL_REFRESH_RATE],
 		         NULL);
 		break;
 	case WM_TIMER:
@@ -612,7 +627,6 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 		event.expose.y      = rect.top;
 		event.expose.width  = rect.right - rect.left;
 		event.expose.height = rect.bottom - rect.top;
-		event.expose.count  = 0;
 		break;
 	case WM_ERASEBKGND:
 		return true;
@@ -640,7 +654,6 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 		event.motion.xRoot   = pt.x;
 		event.motion.yRoot   = pt.y;
 		event.motion.state   = getModifiers();
-		event.motion.isHint  = false;
 		break;
 	case WM_MOUSELEAVE:
 		GetCursorPos(&pt);
@@ -669,10 +682,16 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_MOUSEWHEEL:
 		initScrollEvent(&event, view, lParam);
 		event.scroll.dy = GET_WHEEL_DELTA_WPARAM(wParam) / (float)WHEEL_DELTA;
+		event.scroll.direction = (event.scroll.dy > 0
+		                          ? PUGL_SCROLL_UP
+		                          : PUGL_SCROLL_DOWN);
 		break;
 	case WM_MOUSEHWHEEL:
 		initScrollEvent(&event, view, lParam);
 		event.scroll.dx = GET_WHEEL_DELTA_WPARAM(wParam) / (float)WHEEL_DELTA;
+		event.scroll.direction = (event.scroll.dx > 0
+		                          ? PUGL_SCROLL_RIGHT
+		                          : PUGL_SCROLL_LEFT);
 		break;
 	case WM_KEYDOWN:
 		if (!ignoreKeyEvent(view, lParam)) {

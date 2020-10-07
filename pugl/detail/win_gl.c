@@ -19,10 +19,10 @@
    @brief OpenGL graphics backend for Windows.
 */
 
+#include "pugl/detail/stub.h"
 #include "pugl/detail/types.h"
 #include "pugl/detail/win.h"
 #include "pugl/pugl_gl.h"
-#include "pugl/pugl_stub.h"
 
 #include <windows.h>
 
@@ -107,6 +107,24 @@ static PuglStatus
 puglWinGlConfigure(PuglView* view)
 {
 	PuglInternals* impl = view->impl;
+
+	// Set attributes to default if they are unset
+	// (There is no GLX_DONT_CARE equivalent on Windows)
+	if (view->hints[PUGL_DEPTH_BITS] == PUGL_DONT_CARE) {
+		view->hints[PUGL_DEPTH_BITS] = 0;
+	}
+	if (view->hints[PUGL_STENCIL_BITS] == PUGL_DONT_CARE) {
+		view->hints[PUGL_STENCIL_BITS] = 0;
+	}
+	if (view->hints[PUGL_SAMPLES] == PUGL_DONT_CARE) {
+		view->hints[PUGL_SAMPLES] = 1;
+	}
+	if (view->hints[PUGL_DOUBLE_BUFFER] == PUGL_DONT_CARE) {
+		view->hints[PUGL_DOUBLE_BUFFER] = 1;
+	}
+	if (view->hints[PUGL_SWAP_INTERVAL] == PUGL_DONT_CARE) {
+		view->hints[PUGL_SWAP_INTERVAL] = 1;
+	}
 
 	// clang-format off
 	const int pixelAttrs[] = {

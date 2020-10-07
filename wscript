@@ -65,26 +65,31 @@ def configure(conf):
     if Options.options.ultra_strict:
         # All warnings enabled by autowaf, disable some we trigger
 
-        conf.add_compiler_flags('*', {
+        autowaf.add_compiler_flags(conf.env, '*', {
             'clang': [
                 '-Wno-padded',
                 '-Wno-reserved-id-macro',
                 '-Wno-switch-enum',
             ],
             'gcc': [
+                '-Wno-inline',
                 '-Wno-padded',
-                '-Wno-switch-default',
+                '-Wno-suggest-attribute=const',
+                '-Wno-suggest-attribute=malloc',
+                '-Wno-suggest-attribute=pure',
                 '-Wno-switch-enum',
             ],
             'msvc': [
                 '/wd4061',  # enumerator in switch is not explicitly handled
                 '/wd4514',  # unreferenced inline function has been removed
+                '/wd4710',  # function not inlined
+                '/wd4711',  # function selected for automatic inline expansion
                 '/wd4820',  # padding added after construct
                 '/wd5045',  # will insert Spectre mitigation for memory load
             ],
         })
 
-        conf.add_compiler_flags('c', {
+        autowaf.add_compiler_flags(conf.env, 'c', {
             'clang': [
                 '-Wno-bad-function-cast',
                 '-Wno-float-equal',
@@ -102,15 +107,14 @@ def configure(conf):
             ],
         })
 
-        conf.add_compiler_flags('cxx', {
+        autowaf.add_compiler_flags(conf.env, 'cxx', {
             'clang': [
-                '-Wno-c++98-compat',
-                '-Wno-c++98-compat-pedantic',
                 '-Wno-documentation-unknown-command',
                 '-Wno-old-style-cast',
             ],
             'gcc': [
                 '-Wno-old-style-cast',
+                '-Wno-suggest-final-methods',
             ],
             'msvc': [
                 '/wd4355',  # 'this' used in base member initializer list
@@ -124,14 +128,14 @@ def configure(conf):
 
         # Add some platform-specific warning suppressions
         if conf.env.TARGET_PLATFORM == "win32":
-            conf.add_compiler_flags('*', {
+            autowaf.add_compiler_flags(conf.env, '*', {
                 'gcc': ['-Wno-cast-function-type',
                         '-Wno-conversion',
                         '-Wno-format',
                         '-Wno-suggest-attribute=format'],
             })
         elif conf.env.TARGET_PLATFORM == 'darwin':
-            conf.add_compiler_flags('*', {
+            autowaf.add_compiler_flags(conf.env, '*', {
                 'clang': ['-DGL_SILENCE_DEPRECATION',
                           '-Wno-deprecated-declarations',
                           '-Wno-direct-ivar-access'],
@@ -149,6 +153,8 @@ def configure(conf):
     if platform == 'darwin':
         conf.check_cc(framework_name='Cocoa', framework='Cocoa',
                       uselib_store='COCOA')
+        conf.check_cc(framework_name='Corevideo', framework='Corevideo',
+                      uselib_store='COREVIDEO')
         if not Options.options.no_gl:
             conf.check_cc(framework_name='OpenGL', uselib_store='GL',
                           mandatory=False)
@@ -178,6 +184,11 @@ def configure(conf):
                          uselib_store='XCURSOR',
                          mandatory=False):
             conf.define('HAVE_XCURSOR', 1)
+
+        if conf.check_cc(lib='Xrandr',
+                         uselib_store='XRANDR',
+                         mandatory=False):
+            conf.define('HAVE_XRANDR', 1)
 
         if not Options.options.no_gl:
             glx_fragment = """#include <GL/glx.h>
@@ -229,6 +240,7 @@ def _build_pc_file(bld, name, desc, target, libname, deps={}, requires=[]):
     env = bld.env
     prefix = env.PREFIX
     xprefix = os.path.dirname(env.LIBDIR)
+    libname = '%s-%s' % (libname, PUGL_MAJOR_VERSION)
 
     uselib   = deps.get('uselib', [])
     pkg_deps = [l for l in uselib if 'PKG_' + l.lower() in env]
@@ -257,7 +269,9 @@ def _build_pc_file(bld, name, desc, target, libname, deps={}, requires=[]):
         LIBS=' '.join(link_flags))
 
 
-tests = ['redisplay', 'show_hide', 'update', 'timer']
+gl_tests = ['gl_hints']
+basic_tests = ['stub_hints', 'redisplay', 'show_hide', 'update', 'timer']
+tests = ['gl_hints', 'stub_hints', 'redisplay', 'show_hide', 'update', 'timer']
 
 
 def build(bld):
@@ -343,27 +357,27 @@ def build(bld):
     elif bld.env.TARGET_PLATFORM == 'darwin':
         platform = 'mac'
         build_platform('mac',
-                       framework=['Cocoa'],
+                       framework=['Cocoa', 'Corevideo'],
                        source=lib_source + ['pugl/detail/mac.m'])
 
         build_backend('mac', 'stub',
-                      framework=['Cocoa'],
+                      framework=['Cocoa', 'Corevideo'],
                       source=['pugl/detail/mac_stub.m'])
 
         if bld.env.HAVE_GL:
             build_backend('mac', 'gl',
-                          framework=['Cocoa', 'OpenGL'],
+                          framework=['Cocoa', 'Corevideo', 'OpenGL'],
                           source=['pugl/detail/mac_gl.m'])
 
         if bld.env.HAVE_CAIRO:
             build_backend('mac', 'cairo',
-                          framework=['Cocoa'],
+                          framework=['Cocoa', 'Corevideo'],
                           uselib=['CAIRO'],
                           source=['pugl/detail/mac_cairo.m'])
     else:
         platform = 'x11'
         build_platform('x11',
-                       uselib=['M', 'X11', 'XSYNC', 'XCURSOR'],
+                       uselib=['M', 'X11', 'XSYNC', 'XCURSOR', 'XRANDR'],
                        source=lib_source + ['pugl/detail/x11.c'])
 
         if bld.env.HAVE_GL:
@@ -432,19 +446,60 @@ def build(bld):
                           cflags=glad_cflags,
                           uselib=['DL', 'GL', 'M'])
 
+            for test in gl_tests:
+                bld(features     = 'c cprogram',
+                    source       = 'test/test_%s.c' % test,
+                    target       = 'test/test_%s' % test,
+                    install_path = '',
+                    use          = ['pugl_%s_static' % platform,
+                                    'pugl_%s_gl_static' % platform],
+                    uselib       = deps[platform]['uselib'] + ['GL'])
+
         if bld.env.HAVE_CAIRO:
             build_example('pugl_cairo_demo', ['examples/pugl_cairo_demo.c'],
                           platform, 'cairo',
                           uselib=['M', 'CAIRO'])
 
-        for test in tests:
+        for test in basic_tests:
             bld(features     = 'c cprogram',
                 source       = 'test/test_%s.c' % test,
                 target       = 'test/test_%s' % test,
                 install_path = '',
                 use          = ['pugl_%s_static' % platform,
-                                'pugl_%s_stub_static' % platform],
+                                'pugl_%s_stub_static' % platform,
+                                'pugl_%s_gl_static' % platform],
                 uselib       = deps[platform]['uselib'] + ['CAIRO'])
+
+        # Make a hyper strict warning environment for checking API headers
+        strict_env = bld.env.derive()
+        autowaf.remove_all_warning_flags(strict_env)
+        autowaf.enable_all_warnings(strict_env)
+        autowaf.set_warnings_as_errors(strict_env)
+        autowaf.add_compiler_flags(strict_env, '*', {
+            'clang': ['-Wno-padded'],
+            'gcc': ['-Wno-padded', '-Wno-suggest-attribute=const'],
+        })
+        autowaf.add_compiler_flags(strict_env, 'cxx', {
+            'clang': ['-Wno-documentation-unknown-command'],
+        })
+
+        # Check that C headers build with (almost) no warnings
+        bld(features     = 'c cprogram',
+            source       = 'test/test_build.c',
+            target       = 'test/test_build_c',
+            install_path = '',
+            env          = strict_env,
+            use          = ['pugl_%s_static' % platform],
+            uselib       = deps[platform]['uselib'] + ['CAIRO'])
+
+        # Check that C++ headers build with (almost) no warnings
+        bld(features     = 'cxx cxxprogram',
+            source       = 'test/test_build.cpp',
+            target       = 'test/test_build_cpp',
+            install_path = '',
+            env          = strict_env,
+            use          = ['pugl_%s_static' % platform],
+            uselib       = deps[platform]['uselib'] + ['CAIRO'])
 
         if bld.env.CXX and bld.env.HAVE_GL:
             build_example('pugl_cxx_demo', ['examples/pugl_cxx_demo.cpp'],
@@ -459,8 +514,12 @@ def build(bld):
 def test(tst):
     if tst.options.gui_tests:
         with tst.group('gui') as check:
-            for test in tests:
+            for test in basic_tests:
                 check(['test/test_%s' % test])
+
+            if tst.env.HAVE_GL:
+                for test in gl_tests:
+                    check(['test/test_%s' % test])
 
 
 class LintContext(Build.BuildContext):

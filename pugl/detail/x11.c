@@ -26,6 +26,7 @@
 #include "pugl/detail/x11.h"
 
 #include "pugl/detail/implementation.h"
+#include "pugl/detail/stub.h"
 #include "pugl/detail/types.h"
 #include "pugl/pugl.h"
 #include "pugl/pugl_stub.h"
@@ -35,6 +36,10 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
+
+#ifdef HAVE_XRANDR
+#	include <X11/extensions/Xrandr.h>
+#endif
 
 #ifdef HAVE_XSYNC
 #	include <X11/extensions/sync.h>
@@ -324,6 +329,15 @@ puglRealize(PuglView* view)
 		return st;
 	}
 
+#ifdef HAVE_XRANDR
+	// Set refresh rate hint to the real refresh rate
+	XRRScreenConfiguration* conf         = XRRGetScreenInfo(display, xParent);
+	short                   current_rate = XRRConfigCurrentRate(conf);
+
+	view->hints[PUGL_REFRESH_RATE] = current_rate;
+	XRRFreeScreenConfigInfo(conf);
+#endif
+
 	updateSizeHints(view);
 
 	XClassHint classHint = { world->className, world->className };
@@ -564,7 +578,6 @@ translateEvent(PuglView* view, XEvent xevent)
 		event.expose.y      = xevent.xexpose.y;
 		event.expose.width  = xevent.xexpose.width;
 		event.expose.height = xevent.xexpose.height;
-		event.expose.count  = xevent.xexpose.count;
 		break;
 	case MotionNotify:
 		event.type           = PUGL_MOTION;
@@ -574,7 +587,9 @@ translateEvent(PuglView* view, XEvent xevent)
 		event.motion.xRoot   = xevent.xmotion.x_root;
 		event.motion.yRoot   = xevent.xmotion.y_root;
 		event.motion.state   = translateModifiers(xevent.xmotion.state);
-		event.motion.isHint  = (xevent.xmotion.is_hint == NotifyHint);
+		if (xevent.xmotion.is_hint == NotifyHint) {
+			event.motion.flags |= PUGL_IS_HINT;
+		}
 		break;
 	case ButtonPress:
 		if (xevent.xbutton.button >= 4 && xevent.xbutton.button <= 7) {
@@ -588,10 +603,22 @@ translateEvent(PuglView* view, XEvent xevent)
 			event.scroll.dx      = 0.0;
 			event.scroll.dy      = 0.0;
 			switch (xevent.xbutton.button) {
-			case 4: event.scroll.dy =  1.0; break;
-			case 5: event.scroll.dy = -1.0; break;
-			case 6: event.scroll.dx = -1.0; break;
-			case 7: event.scroll.dx =  1.0; break;
+			case 4:
+				event.scroll.dy        = 1.0;
+				event.scroll.direction = PUGL_SCROLL_UP;
+				break;
+			case 5:
+				event.scroll.dy        = -1.0;
+				event.scroll.direction = PUGL_SCROLL_DOWN;
+				break;
+			case 6:
+				event.scroll.dx        = -1.0;
+				event.scroll.direction = PUGL_SCROLL_LEFT;
+				break;
+			case 7:
+				event.scroll.dx        = 1.0;
+				event.scroll.direction = PUGL_SCROLL_RIGHT;
+				break;
 			}
 			// fallthru
 		}
@@ -645,7 +672,12 @@ translateEvent(PuglView* view, XEvent xevent)
 	case FocusIn:
 	case FocusOut:
 		event.type = (xevent.type == FocusIn) ? PUGL_FOCUS_IN : PUGL_FOCUS_OUT;
-		event.focus.grab = (xevent.xfocus.mode != NotifyNormal);
+		event.focus.mode = PUGL_CROSSING_NORMAL;
+		if (xevent.xfocus.mode == NotifyGrab) {
+			event.focus.mode = PUGL_CROSSING_GRAB;
+		} else if (xevent.xfocus.mode == NotifyUngrab) {
+			event.focus.mode = PUGL_CROSSING_UNGRAB;
+		}
 		break;
 
 	default:
@@ -856,7 +888,6 @@ mergeExposeEvents(PuglEvent* dst, const PuglEvent* src)
 		dst->expose.y      = MIN(dst->expose.y, src->expose.y);
 		dst->expose.width  = max_x - dst->expose.x;
 		dst->expose.height = max_y - dst->expose.y;
-		dst->expose.count  = MIN(dst->expose.count, src->expose.count);
 	}
 }
 
@@ -1116,7 +1147,7 @@ PuglStatus
 puglPostRedisplayRect(PuglView* view, PuglRect rect)
 {
 	const PuglEventExpose event = {
-		PUGL_EXPOSE, 0, rect.x, rect.y, rect.width, rect.height, 0
+		PUGL_EXPOSE, 0, rect.x, rect.y, rect.width, rect.height
 	};
 
 	if (view->world->impl->dispatchingEvents) {
