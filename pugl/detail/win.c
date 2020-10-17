@@ -194,11 +194,11 @@ puglRealize(PuglView* view)
 		return PUGL_BAD_BACKEND;
 	}
 
-	PuglStatus st = view->backend->configure(view);
-	if (st) {
-		return PUGL_SET_FORMAT_FAILED;
+	PuglStatus st;
+	if ((st = view->backend->configure(view))) {
+		return st;
 	} else if ((st = view->backend->create(view))) {
-		return PUGL_CREATE_CONTEXT_FAILED;
+		return st;
 	}
 
 	if (view->title) {
@@ -560,6 +560,8 @@ handleMessage(PuglView* view, UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_SETCURSOR:
 		if (LOWORD(lParam) == HTCLIENT) {
 			SetCursor(view->impl->cursor);
+		} else {
+			return DefWindowProc(view->impl->hwnd, message, wParam, lParam);
 		}
 		break;
 	case WM_SHOWWINDOW:
