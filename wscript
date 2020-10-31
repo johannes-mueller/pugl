@@ -31,7 +31,9 @@ def options(ctx):
     ctx.add_flags(
         opts,
         {'all-headers': 'install complete header implementation',
+         'no-vulkan':   'do not build Vulkan support',
          'no-gl':       'do not build OpenGL support',
+         'no-cxx':      'do not build C++ examples',
          'no-cairo':    'do not build Cairo support',
          'no-static':   'do not build static library',
          'no-shared':   'do not build shared library'})
@@ -42,17 +44,17 @@ def options(ctx):
 
 def configure(conf):
     conf.load('compiler_c', cache=True)
-    try:
-        conf.load('compiler_cxx', cache=True)
-    except Exception:
-        pass
+    if not Options.options.no_cxx:
+        try:
+            conf.load('compiler_cxx', cache=True)
+        except Exception:
+            pass
 
     conf.load('autowaf', cache=True)
     autowaf.set_c_lang(conf, 'c99')
     if 'COMPILER_CXX' in conf.env:
         autowaf.set_cxx_lang(conf, 'c++11')
 
-    conf.env.ALL_HEADERS     = Options.options.all_headers
     conf.env.TARGET_PLATFORM = Options.options.target or sys.platform
     platform                 = conf.env.TARGET_PLATFORM
 
@@ -98,6 +100,7 @@ def configure(conf):
             'gcc': [
                 '-Wno-bad-function-cast',
                 '-Wno-float-equal',
+                '-Wno-pedantic',
             ],
             'msvc': [
                 '/wd4191',  # unsafe conversion from type to type
@@ -109,16 +112,28 @@ def configure(conf):
 
         autowaf.add_compiler_flags(conf.env, 'cxx', {
             'clang': [
+                '-Wno-cast-align',  # pugl_vulkan_cxx_demo
                 '-Wno-documentation-unknown-command',
                 '-Wno-old-style-cast',
             ],
             'gcc': [
+                '-Wno-cast-align',  # pugl_vulkan_cxx_demo
+                '-Wno-effc++',
                 '-Wno-old-style-cast',
                 '-Wno-suggest-final-methods',
+                '-Wno-useless-cast',
             ],
             'msvc': [
+                '/wd4191',  # unsafe conversion between function pointers
                 '/wd4355',  # 'this' used in base member initializer list
                 '/wd4571',  # structured exceptions (SEH) are no longer caught
+                '/wd4623',  # default constructor implicitly deleted
+                '/wd4625',  # copy constructor implicitly deleted
+                '/wd4626',  # assignment operator implicitly deleted
+                '/wd4706',  # assignment within conditional expression
+                '/wd4868',  # may not enforce left-to-right evaluation order
+                '/wd5026',  # move constructor implicitly deleted
+                '/wd5027',  # move assignment operator implicitly deleted
             ],
         })
 
@@ -129,6 +144,9 @@ def configure(conf):
                         '-Wno-conversion',
                         '-Wno-format',
                         '-Wno-suggest-attribute=format'],
+                'clang': ['-D_CRT_SECURE_NO_WARNINGS',
+                          '-Wno-format-nonliteral',
+                          '-Wno-nonportable-system-include-path'],
             })
         elif conf.env.TARGET_PLATFORM == 'darwin':
             autowaf.add_compiler_flags(conf.env, '*', {
@@ -140,7 +158,49 @@ def configure(conf):
                         '-Wno-direct-ivar-access'],
             })
 
+    sys_header = 'windows.h' if platform == 'win32' else ''
+
+    if not Options.options.no_vulkan:
+        vulkan_sdk = os.environ.get('VULKAN_SDK', None)
+        vulkan_cflags = ''
+        if vulkan_sdk:
+            vk_include_path = os.path.join(vulkan_sdk, 'Include')
+            vulkan_cflags = conf.env.CPPPATH_ST % vk_include_path
+
+        # Check for Vulkan header (needed for backends)
+        conf.check(features='c cxx',
+                   cflags=vulkan_cflags,
+                   cxxflags=vulkan_cflags,
+                   header_name=sys_header + ' vulkan/vulkan.h',
+                   uselib_store='VULKAN',
+                   mandatory=False)
+
+        if conf.env.BUILD_TESTS and conf.env.HAVE_VULKAN:
+            # Check for Vulkan library and shader compiler
+            # The library is needed by pugl_vulkan_demo.c which has no loader
+            vulkan_linkflags = ''
+            if vulkan_sdk:
+                vk_lib_path = os.path.join(vulkan_sdk, 'Lib')
+                vulkan_linkflags = conf.env.LIBPATH_ST % vk_lib_path
+
+            # The Vulkan library has a different name on Windows
+            for l in ['vulkan', 'vulkan-1']:
+                if conf.check(lib=l,
+                              uselib_store='VULKAN_LIB',
+                              cflags=vulkan_cflags,
+                              linkflags=vulkan_linkflags,
+                              mandatory=False):
+                    break
+
+            validator_name = 'glslangValidator'
+            if vulkan_sdk:
+                vk_bin_path = os.path.join(vulkan_sdk, 'bin')
+                validator_name = os.path.join(vk_bin_path, 'glslangValidator')
+
+            conf.find_program(validator_name, var='GLSLANGVALIDATOR')
+
     # Check for base system libraries needed on some systems
+    conf.check_cc(lib='pthread', uselib_store='PTHREAD', mandatory=False)
     conf.check_cc(lib='m', uselib_store='M', mandatory=False)
     conf.check_cc(lib='dl', uselib_store='DL', mandatory=False)
 
@@ -228,22 +288,32 @@ def configure(conf):
         conf,
         {"Build static library":   bool(conf.env.BUILD_STATIC),
          "Build shared library":   bool(conf.env.BUILD_SHARED),
+         "Cairo support":          bool(conf.env.HAVE_CAIRO),
          "OpenGL support":         bool(conf.env.HAVE_GL),
-         "Cairo support":          bool(conf.env.HAVE_CAIRO)})
+         "Vulkan support":         bool(conf.env.HAVE_VULKAN)})
 
 
-def _build_pc_file(bld, name, desc, target, libname, deps={}, requires=[]):
+def _build_pc_file(bld,
+                   name,
+                   desc,
+                   target,
+                   libname,
+                   deps={},
+                   requires=[],
+                   cflags=[]):
     "Builds a pkg-config file for a library"
     env = bld.env
     prefix = env.PREFIX
     xprefix = os.path.dirname(env.LIBDIR)
-    libname = '%s-%s' % (libname, PUGL_MAJOR_VERSION)
+    if libname is not None:
+        libname += '-%s' % PUGL_MAJOR_VERSION
 
     uselib   = deps.get('uselib', [])
     pkg_deps = [l for l in uselib if 'PKG_' + l.lower() in env]
     lib_deps = [l for l in uselib if 'PKG_' + l.lower() not in env]
+    lib      = deps.get('lib', []) + [libname] if libname is not None else []
 
-    link_flags = [env.LIB_ST % l for l in (deps.get('lib', []) + [libname])]
+    link_flags = [env.LIB_ST % l for l in lib]
     for l in lib_deps:
         link_flags += [env.LIB_ST % l for l in env['LIB_' + l]]
     for f in deps.get('framework', []):
@@ -263,24 +333,45 @@ def _build_pc_file(bld, name, desc, target, libname, deps={}, requires=[]):
         DESCRIPTION=desc,
         PUGL_MAJOR_VERSION=PUGL_MAJOR_VERSION,
         REQUIRES=' '.join(requires + [p.lower() for p in pkg_deps]),
-        LIBS=' '.join(link_flags))
+        LIBS=' '.join(link_flags),
+        CFLAGS=' '.join(cflags))
 
 
 gl_tests = ['gl_hints']
-basic_tests = ['stub_hints', 'redisplay', 'show_hide', 'update', 'timer']
-tests = ['gl_hints', 'stub_hints', 'redisplay', 'show_hide', 'update', 'timer']
+
+basic_tests = [
+    'realize',
+    'redisplay',
+    'show_hide',
+    'stub_hints',
+    'timer',
+    'update',
+]
+
+tests = gl_tests + basic_tests
+
+
+def concatenate(task):
+    """Task to concatenate all input files into the output file"""
+    with open(task.outputs[0].abspath(), 'w') as out:
+        for filename in task.inputs:
+            with open(filename.abspath(), 'r') as source:
+                for line in source:
+                    out.write(line)
 
 
 def build(bld):
     # C Headers
     includedir = '${INCLUDEDIR}/pugl-%s/pugl' % PUGL_MAJOR_VERSION
-    bld.install_files(includedir, bld.path.ant_glob('pugl/*.h'))
-    bld.install_files(includedir, bld.path.ant_glob('pugl/*.hpp'))
-    bld.install_files(includedir, bld.path.ant_glob('pugl/*.ipp'))
-    if bld.env.ALL_HEADERS:
-        detaildir = os.path.join(includedir, 'detail')
-        bld.install_files(detaildir, bld.path.ant_glob('pugl/detail/*.h'))
-        bld.install_files(detaildir, bld.path.ant_glob('pugl/detail/*.c'))
+    bld.install_files(includedir, bld.path.ant_glob('include/pugl/*.h'))
+
+    if 'COMPILER_CXX' in bld.env:
+        # C++ Headers
+        includedirxx = '${INCLUDEDIR}/puglxx-%s/pugl' % PUGL_MAJOR_VERSION
+        bld.install_files(includedirxx,
+                          bld.path.ant_glob('bindings/cxx/include/pugl/*.hpp'))
+        bld.install_files(includedirxx,
+                          bld.path.ant_glob('bindings/cxx/include/pugl/*.ipp'))
 
     # Library dependencies of pugl libraries (for building examples)
     deps = {}
@@ -291,14 +382,16 @@ def build(bld):
             deps[name][k] = kwargs.get(k, [])
 
         args = kwargs.copy()
-        args.update({'includes':        ['.'],
-                     'export_includes': ['.'],
+        args.update({'includes':        ['include'],
+                     'export_includes': ['include'],
                      'install_path':    '${LIBDIR}',
                      'vnum':            PUGL_VERSION})
 
         flags = []
         if not bld.env.MSVC_COMPILER:
-            flags = ['-fPIC', '-fvisibility=hidden']
+            flags = ['-fvisibility=hidden']
+        if bld.env.TARGET_PLATFORM != 'win32':
+            flags = ['-fPIC']
 
         if bld.env.BUILD_SHARED:
             bld(features  = 'c cshlib',
@@ -322,7 +415,8 @@ def build(bld):
         build_pugl_lib(platform, **kwargs)
         _build_pc_file(bld, 'Pugl', 'Pugl GUI library core',
                        'pugl', 'pugl_%s' % platform,
-                       deps=kwargs)
+                       deps=kwargs,
+                       cflags=['-I${includedir}/pugl-%s' % PUGL_MAJOR_VERSION])
 
     def build_backend(platform, backend, **kwargs):
         name  = '%s_%s' % (platform, backend)
@@ -332,64 +426,99 @@ def build(bld):
                        'Pugl GUI library with %s backend' % label,
                        'pugl-%s' % backend, 'pugl_' + name,
                        deps=kwargs,
-                       requires=['pugl-%s' % PUGL_MAJOR_VERSION])
+                       requires=['pugl-%s' % PUGL_MAJOR_VERSION],
+                       cflags=['-I${includedir}/pugl-%s' % PUGL_MAJOR_VERSION])
 
-    lib_source = ['pugl/detail/implementation.c']
+    lib_source = ['src/implementation.c']
     if bld.env.TARGET_PLATFORM == 'win32':
         platform = 'win'
         build_platform('win',
                        uselib=['GDI32', 'USER32'],
-                       source=lib_source + ['pugl/detail/win.c'])
+                       source=lib_source + ['src/win.c'])
+
+        build_backend('win', 'stub',
+                      uselib=['GDI32', 'USER32'],
+                      source=['src/win_stub.c'])
 
         if bld.env.HAVE_GL:
             build_backend('win', 'gl',
                           uselib=['GDI32', 'USER32', 'GL'],
-                          source=['pugl/detail/win_gl.c'])
+                          source=['src/win_gl.c'])
+
+        if bld.env.HAVE_VULKAN:
+            build_backend('win', 'vulkan',
+                          uselib=['GDI32', 'USER32', 'VULKAN'],
+                          source=['src/win_vulkan.c', 'src/win_stub.c'])
 
         if bld.env.HAVE_CAIRO:
             build_backend('win', 'cairo',
                           uselib=['CAIRO', 'GDI32', 'USER32'],
-                          source=['pugl/detail/win_cairo.c'])
+                          source=['src/win_cairo.c', 'src/win_stub.c'])
 
     elif bld.env.TARGET_PLATFORM == 'darwin':
         platform = 'mac'
         build_platform('mac',
                        framework=['Cocoa', 'Corevideo'],
-                       source=lib_source + ['pugl/detail/mac.m'])
+                       source=lib_source + ['src/mac.m'])
 
         build_backend('mac', 'stub',
                       framework=['Cocoa', 'Corevideo'],
-                      source=['pugl/detail/mac_stub.m'])
+                      source=['src/mac_stub.m'])
 
         if bld.env.HAVE_GL:
             build_backend('mac', 'gl',
                           framework=['Cocoa', 'Corevideo', 'OpenGL'],
-                          source=['pugl/detail/mac_gl.m'])
+                          source=['src/mac_gl.m'])
+
+        if bld.env.HAVE_VULKAN:
+            build_backend('mac', 'vulkan',
+                          framework=['Cocoa', 'QuartzCore'],
+                          source=['src/mac_vulkan.m'])
 
         if bld.env.HAVE_CAIRO:
             build_backend('mac', 'cairo',
                           framework=['Cocoa', 'Corevideo'],
                           uselib=['CAIRO'],
-                          source=['pugl/detail/mac_cairo.m'])
+                          source=['src/mac_cairo.m'])
     else:
         platform = 'x11'
         build_platform('x11',
                        uselib=['M', 'X11', 'XSYNC', 'XCURSOR', 'XRANDR'],
-                       source=lib_source + ['pugl/detail/x11.c'])
+                       source=lib_source + ['src/x11.c'])
+
+        build_backend('x11', 'stub',
+                      uselib=['X11'],
+                      source=['src/x11_stub.c'])
 
         if bld.env.HAVE_GL:
             glx_lib = 'GLX' if bld.env.LIB_GLX else 'GL'
             build_backend('x11', 'gl',
                           uselib=[glx_lib, 'X11'],
-                          source=['pugl/detail/x11_gl.c'])
+                          source=['src/x11_gl.c'])
+
+        if bld.env.HAVE_VULKAN:
+            build_backend('x11', 'vulkan',
+                          uselib=['DL', 'X11'],
+                          source=['src/x11_vulkan.c', 'src/x11_stub.c'])
 
         if bld.env.HAVE_CAIRO:
             build_backend('x11', 'cairo',
                           uselib=['CAIRO', 'X11'],
-                          source=['pugl/detail/x11_cairo.c'])
+                          source=['src/x11_cairo.c', 'src/x11_stub.c'])
+
+    if 'COMPILER_CXX' in bld.env:
+        _build_pc_file(
+            bld, 'Pugl C++',
+            'C++ bindings for the Pugl GUI library',
+            'puglxx',
+            None,
+            requires=['pugl-%s' % PUGL_MAJOR_VERSION],
+            cflags=['-I${includedir}/puglxx-%s' % PUGL_MAJOR_VERSION])
 
     def build_example(prog, source, platform, backend, **kwargs):
         lang = 'cxx' if source[0].endswith('.cpp') else 'c'
+
+        includes = ['.'] + (['bindings/cxx/include'] if lang == 'cxx' else [])
 
         use = ['pugl_%s_static' % platform,
                'pugl_%s_%s_static' % (platform, backend)]
@@ -401,6 +530,7 @@ def build(bld):
             bld(features     = 'subst',
                 source       = 'resources/Info.plist.in',
                 target       = '{}.app/Contents/Info.plist'.format(prog),
+                includes     = includes,
                 install_path = '',
                 NAME         = prog)
 
@@ -413,6 +543,7 @@ def build(bld):
         bld(features     = '%s %sprogram' % (lang, lang),
             source       = source,
             target       = target,
+            includes     = includes,
             use          = use,
             install_path = '',
             **kwargs)
@@ -452,6 +583,31 @@ def build(bld):
                                     'pugl_%s_gl_static' % platform],
                     uselib       = deps[platform]['uselib'] + ['GL'])
 
+        if bld.env.HAVE_VULKAN and 'GLSLANGVALIDATOR' in bld.env:
+            for s in ['rect.vert', 'rect.frag']:
+                complete = bld.path.get_bld().make_node(
+                    'shaders/%s' % s.replace('.', '.vulkan.'))
+                bld(rule = concatenate,
+                    source = ['shaders/header_420.glsl', 'shaders/%s' % s],
+                    target = complete)
+
+                cmd = bld.env.GLSLANGVALIDATOR[0] + " -V -o ${TGT} ${SRC}"
+                bld(rule = cmd,
+                    source = complete,
+                    target = 'shaders/%s.spv' % s)
+
+            build_example('pugl_vulkan_demo',
+                          ['examples/pugl_vulkan_demo.c'],
+                          platform,
+                          'vulkan', uselib=['M', 'VULKAN', 'VULKAN_LIB'])
+
+            if bld.env.CXX:
+                build_example('pugl_vulkan_cxx_demo',
+                              ['examples/pugl_vulkan_cxx_demo.cpp'],
+                              platform, 'vulkan',
+                              defines=['PUGL_DISABLE_DEPRECATED'],
+                              uselib=['DL', 'M', 'PTHREAD', 'VULKAN'])
+
         if bld.env.HAVE_CAIRO:
             build_example('pugl_cairo_demo', ['examples/pugl_cairo_demo.c'],
                           platform, 'cairo',
@@ -485,7 +641,7 @@ def build(bld):
                 'clang': ['-Wno-documentation-unknown-command'],
                 'msvc': [
                     '/wd4355',  # 'this' used in base member initializer list
-                    '/wd4571',  # structured exceptions (SEH) are no longer caught
+                    '/wd4571',  # structured exceptions are no longer caught
                 ],
             })
 
@@ -504,6 +660,7 @@ def build(bld):
                 target       = 'test/test_build_cpp',
                 install_path = '',
                 env          = strict_env,
+                includes     = ['bindings/cxx/include'],
                 use          = ['pugl_%s_static' % platform],
                 uselib       = deps[platform]['uselib'] + ['CAIRO'])
 
@@ -514,7 +671,10 @@ def build(bld):
                           uselib=['GL', 'M'])
 
     if bld.env.DOCS:
-        autowaf.build_dox(bld, 'PUGL', PUGL_VERSION, top, out)
+        autowaf.build_dox(
+            bld, 'PUGL', PUGL_VERSION, top, out, install_man=False)
+        bld.install_files('${MANDIR}/man3', 'doc/man/man3/pugl.3')
+        bld.install_files('${MANDIR}/man3', 'doc/man/man3/puglxx.3')
 
 
 def test(tst):
@@ -550,7 +710,15 @@ def lint(ctx):
 
     if "IWYU_TOOL" in ctx.env:
         Logs.info("Running include-what-you-use")
-        cmd = [ctx.env.IWYU_TOOL[0], "-o", "clang", "-p", "build"]
+        cmd = [ctx.env.IWYU_TOOL[0], "-o", "clang", "-p", "build", "--",
+               "-Xiwyu", "--check_also=*.hpp",
+               "-Xiwyu", "--check_also=examples/*.hpp",
+               "-Xiwyu", "--check_also=examples/*",
+               "-Xiwyu", "--check_also=pugl/*.h",
+               "-Xiwyu", "--check_also=bindings/cxx/include/pugl/*.*",
+               "-Xiwyu", "--check_also=src/*.c",
+               "-Xiwyu", "--check_also=src/*.h",
+               "-Xiwyu", "--check_also=src/*.m"]
         output = subprocess.check_output(cmd).decode('utf-8')
         if 'error: ' in output:
             sys.stdout.write(output)

@@ -3,7 +3,7 @@ Pugl
 
 Pugl (PlUgin Graphics Library) is a minimal portable API for GUIs which is
 suitable for use in plugins.  It works on X11, MacOS, and Windows, and
-optionally supports OpenGL and Cairo graphics contexts.
+optionally supports Vulkan, OpenGL, and Cairo graphics contexts.
 
 Pugl is vaguely similar to libraries like GLUT and GLFW, but with some
 distinguishing features:
@@ -64,6 +64,10 @@ this can be achieved by simply depending on the package `pugl-gl-0` or
 library, distributions should retain this separation so that GL applications
 don't depend on Cairo and its dependencies, or vice-versa.
 
+The C++ bindings are header-only but installed to a separate include path than
+the C headers.  Depending on the package `puglxx-0` (in addition to the
+appropriate backend package above) will enable their use.
+
 Distributions are encouraged to include static libraries if possible so that
 developers can build portable plugin binaries.
 
@@ -103,6 +107,12 @@ demonstrations:
    console in a human readable format.
 
  * `pugl_cxx_demo` is a simple cube demo that uses the C++ API.
+
+ * `pugl_vulkan_demo` is a simple example of using Vulkan in C that simply
+   clears the window.
+
+ * `pugl_vulkan_cxx_demo` is a more advanced Vulkan demo in C++ that draws many
+   animated rectangles like `pugl_shader_demo`.
 
 All example programs support several command line options to control various
 behaviours, see the output of `--help` for details.  Please file an issue if

@@ -23,7 +23,6 @@
 
 #include "pugl/gl.h"
 #include "pugl/pugl.h"
-#include "pugl/pugl_gl.h"
 
 #include <stdbool.h>
 

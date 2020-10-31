@@ -14,6 +14,9 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
+#ifndef TEST_TEST_UTILS_H
+#define TEST_TEST_UTILS_H
+
 #define __STDC_FORMAT_MACROS 1
 
 #include "pugl/pugl.h"
@@ -49,7 +52,7 @@ logError(const char* fmt, ...)
 {
 	fprintf(stderr, "error: ");
 
-	va_list args;
+	va_list args; // NOLINT
 	va_start(args, fmt);
 	vfprintf(stderr, fmt, args);
 	va_end(args);
@@ -170,8 +173,10 @@ printEvent(const PuglEvent* event, const char* prefix, const bool verbose)
 		             prefix,
 		             event->client.data1,
 		             event->client.data2);
-	case PUGL_TIMER:
-		return PRINT("%sTimer %" PRIuPTR "\n", prefix, event->timer.id);
+	case PUGL_LOOP_ENTER:
+		return PRINT("%sLoop enter\n", prefix);
+	case PUGL_LOOP_LEAVE:
+		return PRINT("%sLoop leave\n", prefix);
 	default:
 		break;
 	}
@@ -209,6 +214,8 @@ printEvent(const PuglEvent* event, const char* prefix, const bool verbose)
 			             prefix,
 			             event->motion.x,
 			             event->motion.y);
+		case PUGL_TIMER:
+			return PRINT("%sTimer %" PRIuPTR "\n", prefix, event->timer.id);
 		default:
 			return PRINT("%sUnknown event type %d\n", prefix, (int)event->type);
 		}
@@ -345,3 +352,5 @@ puglParseTestOptions(int* pargc, char*** pargv)
 
 	return opts;
 }
+
+#endif // TEST_TEST_UTILS_H

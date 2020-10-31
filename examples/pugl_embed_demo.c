@@ -25,7 +25,6 @@
 
 #include "pugl/gl.h"
 #include "pugl/pugl.h"
-#include "pugl/pugl_gl.h"
 
 #include <math.h>
 #include <stdbool.h>
