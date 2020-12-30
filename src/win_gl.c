@@ -14,11 +14,6 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file win_gl.c
-   @brief OpenGL graphics backend for Windows.
-*/
-
 #include "stub.h"
 #include "types.h"
 #include "win.h"
@@ -308,6 +303,18 @@ puglGetProcAddress(const char* name)
 	return func
 		? func
 		: (PuglGlFunc)GetProcAddress(GetModuleHandle("opengl32.dll"), name);
+}
+
+PuglStatus
+puglEnterContext(PuglView* view)
+{
+	return view->backend->enter(view, NULL);
+}
+
+PuglStatus
+puglLeaveContext(PuglView* view)
+{
+	return view->backend->leave(view, NULL);
 }
 
 const PuglBackend*

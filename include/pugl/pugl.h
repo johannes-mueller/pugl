@@ -14,11 +14,6 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file pugl.h
-   @brief Pugl API.
-*/
-
 #ifndef PUGL_PUGL_H
 #define PUGL_PUGL_H
 
@@ -70,10 +65,6 @@
 PUGL_BEGIN_DECLS
 
 /**
-   @defgroup pugldoc Pugl
-   A minimal portable API for embeddable GUIs.
-   @{
-
    @defgroup pugl Pugl C API
    Pugl C API.
    @{
@@ -93,7 +84,7 @@ typedef struct {
 } PuglRect;
 
 /**
-   @name Events
+   @defgroup events Events
 
    All updates to the view happen via events, which are dispatched to the
    view's event function.  Most events map directly to one from the underlying
@@ -577,7 +568,7 @@ typedef union {
 
 /**
    @}
-   @name Status
+   @defgroup status Status
 
    Most functions return a status code which can be used to check for errors.
 
@@ -592,7 +583,7 @@ typedef enum {
 	PUGL_BAD_BACKEND,           ///< Invalid or missing backend
 	PUGL_BAD_CONFIGURATION,     ///< Invalid view configuration
 	PUGL_BAD_PARAMETER,         ///< Invalid parameter
-	PUGL_BACKEND_FAILED,        ///< Backend initialisation failed
+	PUGL_BACKEND_FAILED,        ///< Backend initialization failed
 	PUGL_REGISTRATION_FAILED,   ///< Class registration failed
 	PUGL_REALIZE_FAILED,        ///< System view realization failed
 	PUGL_SET_FORMAT_FAILED,     ///< Failed to set pixel format
@@ -607,7 +598,7 @@ puglStrerror(PuglStatus status);
 
 /**
    @}
-   @name World
+   @defgroup world World
 
    The top-level context of a Pugl application or plugin.
 
@@ -683,10 +674,11 @@ puglGetWorldHandle(PuglWorld* world);
 /**
    Return a pointer to the native handle of the world.
 
-   @return
-   - X11: A pointer to the `Display`.
-   - MacOS: `NULL`.
-   - Windows: The `HMODULE` of the calling process.
+   X11: Returns a pointer to the `Display`.
+
+   MacOS: Returns null.
+
+   Windows: Returns the `HMODULE` of the calling process.
 */
 PUGL_API void*
 puglGetNativeWorld(PuglWorld* world);
@@ -729,19 +721,17 @@ puglGetTime(const PuglWorld* world);
    until an event occurs.
 
    For continuously animating programs, a timeout that is a reasonable fraction
-   of the ideal frame period should be used, to minimise input latency by
+   of the ideal frame period should be used, to minimize input latency by
    ensuring that as many input events are consumed as possible before drawing.
 
-   @return
-   - #PUGL_SUCCESS if events are read
-   - #PUGL_FAILURE if not, or an error.
+   @return #PUGL_SUCCESS if events are read, #PUGL_FAILURE if not, or an error.
 */
 PUGL_API PuglStatus
 puglUpdate(PuglWorld* world, double timeout);
 
 /**
    @}
-   @name View
+   @defgroup view View
 
    A drawable region that receives events.
 
@@ -816,7 +806,7 @@ typedef enum {
 typedef PuglStatus (*PuglEventFunc)(PuglView* view, const PuglEvent* event);
 
 /**
-   @name Setup
+   @defgroup setup Setup
    Functions for creating and destroying a view.
    @{
 */
@@ -863,9 +853,9 @@ puglGetHandle(PuglView* view);
 
    Pugl includes the following backends:
 
-   - puglCairoBackend(), declared in pugl/cairo.h
-   - puglGlBackend(), declared in pugl/gl.h
-   - puglVulkanBackend(), declared in pugl/vulkan.h
+   - puglCairoBackend()
+   - puglGlBackend()
+   - puglVulkanBackend()
 
    Note that backends are modular and not compiled into the main Pugl library
    to avoid unnecessary dependencies.  To use a particular backend,
@@ -899,8 +889,7 @@ puglGetViewHint(const PuglView* view, PuglViewHint hint);
 
 /**
    @}
-   @anchor frame
-   @name Frame
+   @defgroup frame Frame
    Functions for working with the position and size of a view.
    @{
 */
@@ -982,8 +971,8 @@ puglSetAspectRatio(PuglView* view, int minX, int minY, int maxX, int maxY);
 
 /**
    @}
-   @name Windows
-   Functions for working with system views and the window hierarchy.
+   @defgroup window Window
+   Functions to control the top-level window of a view.
    @{
 */
 
@@ -1019,7 +1008,7 @@ PUGL_API PuglStatus
 puglSetTransientFor(PuglView* view, PuglNativeView parent);
 
 /**
-   Realise a view by creating a corresponding system view or window.
+   Realize a view by creating a corresponding system view or window.
 
    After this call, the (initially invisible) underlying system view exists and
    can be accessed with puglGetNativeWindow().  There is currently no
@@ -1042,11 +1031,11 @@ puglRealize(PuglView* view);
    top depending on the platform.
 */
 PUGL_API PuglStatus
-puglShowWindow(PuglView* view);
+puglShow(PuglView* view);
 
 /// Hide the current window
 PUGL_API PuglStatus
-puglHideWindow(PuglView* view);
+puglHide(PuglView* view);
 
 /// Return true iff the view is currently visible
 PUGL_API bool
@@ -1058,40 +1047,10 @@ puglGetNativeWindow(PuglView* view);
 
 /**
    @}
-   @name Graphics
+   @defgroup graphics Graphics
    Functions for working with the graphics context and scheduling redisplays.
    @{
 */
-
-/**
-   Enter the graphics context.
-
-   This can be used to enter the graphics context in unusual situations, for
-   doing things like loading textures.  Note that this must not be used for
-   drawing, which may only be done while processing an expose event.  Note also
-   that initial setup should not use this, but instead be done while handling a
-   #PUGL_CREATE event.
-
-   - Cairo: Does nothing.
-   - OpenGL: Sets the current OpenGL context.
-   - Stub: Does nothing.
-   - Vulkan: Does nothing.
-*/
-PUGL_API PuglStatus
-puglEnterContext(PuglView* view);
-
-/**
-   Leave the graphics context.
-
-   This must only be called after puglEnterContext().
-
-   - Cairo: Does nothing.
-   - OpenGL: Resets the current OpenGL context.
-   - Stub: Does nothing.
-   - Vulkan: Does nothing.
-*/
-PUGL_API PuglStatus
-puglLeaveContext(PuglView* view);
 
 /**
    Get the graphics context.
@@ -1099,12 +1058,10 @@ puglLeaveContext(PuglView* view);
    This is a backend-specific context used for drawing if the backend graphics
    API requires one.  It is only available during an expose.
 
-   @return
-   - Cairo: A pointer to a
-     [`cairo_t`](http://www.cairographics.org/manual/cairo-cairo-t.html).
-   - OpenGL: `NULL`.
-   - Stub: `NULL`.
-   - Vulkan: `NULL`.
+   Cairo: Returns a pointer to a
+   [`cairo_t`](http://www.cairographics.org/manual/cairo-cairo-t.html).
+
+   All other backends: returns null.
 */
 PUGL_API void*
 puglGetContext(PuglView* view);
@@ -1132,8 +1089,7 @@ puglPostRedisplayRect(PuglView* view, PuglRect rect);
 
 /**
    @}
-   @anchor interaction
-   @name Interaction
+   @defgroup interaction Interaction
    Functions for interacting with the user and window system.
    @{
 */
@@ -1200,7 +1156,7 @@ puglGetClipboard(PuglView* view, const char** type, size_t* len);
    the view.  May fail if setting the cursor is not supported on this system,
    for example if compiled on X11 without Xcursor support.
 
-   @return
+   Errors:
    - #PUGL_BAD_PARAMETER if the given cursor is invalid.
    - #PUGL_FAILURE if the cursor isknown but loading it from the system fails.
 */
@@ -1240,7 +1196,7 @@ puglRequestAttention(PuglView* view);
    resolution on Windows) and may be rounded up if it is too short.  On X11 and
    MacOS, a resolution of about 1ms can usually be relied on.
 
-   @return
+   Errors:
    - #PUGL_FAILURE if timers are not supported by this system or build.
    - #PUGL_UNKNOWN_ERROR if setting the timer failed.
 */
@@ -1253,7 +1209,7 @@ puglStartTimer(PuglView* view, uintptr_t id, double timeout);
    @param view The view that the timer is set for.
    @param id The ID previously passed to puglStartTimer().
 
-   @return
+   Errors:
    - #PUGL_FAILURE if timers are not supported by this system or build.
    - #PUGL_UNKNOWN_ERROR if stopping the timer failed.
 */
@@ -1273,7 +1229,7 @@ puglStopTimer(PuglView* view, uintptr_t id);
    puglPostRedisplayRect(), but will always send a message to the X server,
    even when called in an event handler.
 
-   @return
+   Errors:
    - #PUGL_UNSUPPORTED_TYPE if sending events of this type is not supported.
    - #PUGL_UNKNOWN_ERROR if sending the event failed.
 */
@@ -1288,7 +1244,7 @@ puglSendEvent(PuglView* view, const PuglEvent* event);
 
 /**
    @}
-   @name Deprecated API
+   @defgroup deprecated Deprecated API
    @{
 */
 
@@ -1475,7 +1431,7 @@ puglInitBackend(PuglView* view, const PuglBackend* backend)
 }
 
 /**
-   Realise a view by creating a corresponding system view or window.
+   Realize a view by creating a corresponding system view or window.
 
    The view should be fully configured using the above functions before this is
    called.  This function may only be called once per view.
@@ -1545,10 +1501,15 @@ puglPollEvents(PuglWorld* world, double timeout);
 PUGL_API PUGL_DEPRECATED_BY("puglUpdate") PuglStatus
 puglDispatchEvents(PuglWorld* world);
 
+PUGL_API PUGL_DEPRECATED_BY("puglShow") PuglStatus
+puglShowWindow(PuglView* view);
+
+PUGL_API PUGL_DEPRECATED_BY("puglHide") PuglStatus
+puglHideWindow(PuglView* view);
+
 #endif // PUGL_DISABLE_DEPRECATED
 
 /**
-   @}
    @}
    @}
 */

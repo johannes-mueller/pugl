@@ -14,16 +14,12 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file gl.hpp
-   @brief OpenGL-specific C++ API.
-*/
-
 #ifndef PUGL_GL_HPP
 #define PUGL_GL_HPP
 
 #include "pugl/gl.h"
 #include "pugl/pugl.h"
+#include "pugl/pugl.hpp"
 
 namespace pugl {
 
@@ -42,6 +38,20 @@ inline GlFunc
 getProcAddress(const char* name) noexcept
 {
 	return puglGetProcAddress(name);
+}
+
+/// @copydoc puglEnterContext
+inline Status
+enterContext(View& view) noexcept
+{
+	return static_cast<Status>(puglEnterContext(view.cobj()));
+}
+
+/// @copydoc puglLeaveContext
+inline Status
+leaveContext(View& view) noexcept
+{
+	return static_cast<Status>(puglLeaveContext(view.cobj()));
 }
 
 /// @copydoc puglGlBackend

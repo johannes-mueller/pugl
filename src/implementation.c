@@ -14,11 +14,6 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file implementation.c
-   @brief Platform-independent implementation.
-*/
-
 #include "implementation.h"
 
 #include "pugl/pugl.h"
@@ -289,19 +284,19 @@ puglDispatchEvents(PuglWorld* world)
 	return puglUpdate(world, 0.0);
 }
 
+PuglStatus
+puglShowWindow(PuglView* view)
+{
+	return puglShow(view);
+}
+
+PuglStatus
+puglHideWindow(PuglView* view)
+{
+	return puglHide(view);
+}
+
 #endif
-
-PuglStatus
-puglEnterContext(PuglView* view)
-{
-	return view->backend->enter(view, NULL);
-}
-
-PuglStatus
-puglLeaveContext(PuglView* view)
-{
-	return view->backend->leave(view, NULL);
-}
 
 PuglStatus
 puglSetEventFunc(PuglView* view, PuglEventFunc eventFunc)

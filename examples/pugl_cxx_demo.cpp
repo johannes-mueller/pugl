@@ -14,11 +14,6 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file pugl_cxx_demo.cpp
-   @brief A simple demo of the Pugl C++ API.
-*/
-
 #include "cube_view.h"
 #include "demo_utils.h"
 #include "test/test_utils.h"
@@ -38,7 +33,11 @@ public:
 		setEventHandler(*this);
 	}
 
-	using pugl::View::onEvent;
+	template<PuglEventType t, class Base>
+	pugl::Status onEvent(const pugl::Event<t, Base>&) noexcept
+	{
+		return pugl::Status::success;
+	}
 
 	static pugl::Status onEvent(const pugl::ConfigureEvent& event) noexcept;
 	pugl::Status        onEvent(const pugl::UpdateEvent& event) noexcept;
@@ -134,7 +133,7 @@ main(int argc, char** argv)
 	view.setHint(pugl::ViewHint::swapInterval, opts.sync);
 	view.setHint(pugl::ViewHint::ignoreKeyRepeat, opts.ignoreKeyRepeat);
 	view.realize();
-	view.showWindow();
+	view.show();
 
 	unsigned framesDrawn = 0;
 	while (!view.quit()) {

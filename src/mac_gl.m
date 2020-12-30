@@ -14,11 +14,6 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file mac_gl.m
-   @brief OpenGL graphics backend for MacOS.
-*/
-
 #include "implementation.h"
 #include "mac.h"
 #include "stub.h"
@@ -187,6 +182,18 @@ puglGetProcAddress(const char *name)
 	CFRelease(symbol);
 
 	return func;
+}
+
+PuglStatus
+puglEnterContext(PuglView* view)
+{
+	return view->backend->enter(view, NULL);
+}
+
+PuglStatus
+puglLeaveContext(PuglView* view)
+{
+	return view->backend->leave(view, NULL);
 }
 
 const PuglBackend*

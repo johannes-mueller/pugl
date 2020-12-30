@@ -14,28 +14,28 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file pugl_shader_demo.c
-   @brief An example of drawing with OpenGL 3/4.
+/*
+  An example of drawing with OpenGL 3/4.
 
-   This is an example of using OpenGL for pixel-perfect 2D drawing.  It uses
-   pixel coordinates for positions and sizes so that things work roughly like a
-   typical 2D graphics API.
+  This is an example of using OpenGL for pixel-perfect 2D drawing.  It uses
+  pixel coordinates for positions and sizes so that things work roughly like a
+  typical 2D graphics API.
 
-   The program draws a bunch of rectangles with borders, using instancing.
-   Each rectangle has origin, size, and fill color attributes, which are shared
-   for all four vertices.  On each frame, a single buffer with all the
-   rectangle data is sent to the GPU, and everything is drawn with a single
-   draw call.
+  The program draws a bunch of rectangles with borders, using instancing.
+  Each rectangle has origin, size, and fill color attributes, which are shared
+  for all four vertices.  On each frame, a single buffer with all the
+  rectangle data is sent to the GPU, and everything is drawn with a single
+  draw call.
 
-   This is not particularly realistic or optimal, but serves as a decent rough
-   benchmark for how much simple geometry you can draw.  The number of
-   rectangles can be given on the command line.  For reference, it begins to
-   struggle to maintain 60 FPS on my machine (1950x + Vega64) with more than
-   about 100000 rectangles.
+  This is not particularly realistic or optimal, but serves as a decent rough
+  benchmark for how much simple geometry you can draw.  The number of
+  rectangles can be given on the command line.  For reference, it begins to
+  struggle to maintain 60 FPS on my machine (1950x + Vega64) with more than
+  about 100000 rectangles.
 */
 
 #include "demo_utils.h"
+#include "file_utils.h"
 #include "rects.h"
 #include "shader_utils.h"
 #include "test/test_utils.h"
@@ -63,6 +63,7 @@ typedef struct
 
 typedef struct
 {
+	const char*     programPath;
 	PuglWorld*      world;
 	PuglView*       view;
 	PuglTestOptions opts;
@@ -204,14 +205,18 @@ makeRects(const size_t numRects)
 }
 
 static char*
-loadShader(const char* const path)
+loadShader(const char* const programPath, const char* const name)
 {
+	char* const path = resourcePath(programPath, name);
+	fprintf(stderr, "Loading shader %s\n", path);
+
 	FILE* const file = fopen(path, "r");
 	if (!file) {
 		logError("Failed to open '%s'\n", path);
 		return NULL;
 	}
 
+	free(path);
 	fseek(file, 0, SEEK_END);
 	const size_t fileSize = (size_t)ftell(file);
 
@@ -304,9 +309,14 @@ setupGl(PuglTestApp* app)
 	                                : "shaders/header_420.glsl");
 
 	// Load shader sources
-	char* const headerSource   = loadShader(headerFile);
-	char* const vertexSource   = loadShader("shaders/rect.vert");
-	char* const fragmentSource = loadShader("shaders/rect.frag");
+	char* const headerSource = loadShader(app->programPath, headerFile);
+
+	char* const vertexSource = loadShader(app->programPath,
+	                                      "shaders/rect.vert");
+
+	char* const fragmentSource = loadShader(app->programPath,
+	                                        "shaders/rect.frag");
+
 	if (!vertexSource || !fragmentSource) {
 		logError("Failed to load shader sources\n");
 		return PUGL_FAILURE;
@@ -406,6 +416,7 @@ main(int argc, char** argv)
 {
 	PuglTestApp app = {0};
 
+	app.programPath    = argv[0];
 	app.glMajorVersion = 3;
 	app.glMinorVersion = 3;
 
@@ -426,7 +437,7 @@ main(int argc, char** argv)
 
 	// Show window
 	printViewHints(app.view);
-	puglShowWindow(app.view);
+	puglShow(app.view);
 
 	// Calculate ideal frame duration to drive the main loop at a good rate
 	const int    refreshRate   = puglGetViewHint(app.view, PUGL_REFRESH_RATE);

@@ -14,11 +14,6 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file gl.h
-   @brief OpenGL-specific API.
-*/
-
 #ifndef PUGL_GL_H
 #define PUGL_GL_H
 
@@ -72,6 +67,24 @@ typedef void (*PuglGlFunc)(void);
 */
 PUGL_API PuglGlFunc
 puglGetProcAddress(const char* name);
+
+/**
+   Enter the OpenGL context.
+
+   This can be used to enter the graphics context in unusual situations, for
+   doing things like loading textures.  Note that this must not be used for
+   drawing, which may only be done while processing an expose event.
+*/
+PUGL_API PuglStatus
+puglEnterContext(PuglView* view);
+
+/**
+   Leave the OpenGL context.
+
+   This must only be called after puglEnterContext().
+*/
+PUGL_API PuglStatus
+puglLeaveContext(PuglView* view);
 
 /**
    OpenGL graphics backend.

@@ -16,11 +16,6 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file x11.c
-   @brief X11 implementation.
-*/
-
 #define _POSIX_C_SOURCE 199309L
 
 #include "x11.h"
@@ -394,7 +389,7 @@ puglRealize(PuglView* view)
 }
 
 PuglStatus
-puglShowWindow(PuglView* view)
+puglShow(PuglView* view)
 {
 	PuglStatus st = PUGL_SUCCESS;
 
@@ -411,7 +406,7 @@ puglShowWindow(PuglView* view)
 }
 
 PuglStatus
-puglHideWindow(PuglView* view)
+puglHide(PuglView* view)
 {
 	XUnmapWindow(view->impl->display, view->impl->win);
 	return PUGL_SUCCESS;

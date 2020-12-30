@@ -15,9 +15,11 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file pugl_vulkan_demo.c
-   @brief A simple example of drawing with Vulkan.
+/*
+  A simple example of drawing with Vulkan.
+
+  For a more advanced demo that actually draws something interesting, see
+  pugl_vulkan_cxx_demo.cpp.
 */
 
 #include "demo_utils.h"
@@ -893,7 +895,7 @@ destroyWorld(VulkanApp* const app)
 		closeDevice(vk);
 
 		if (app->view) {
-			puglHideWindow(app->view);
+			puglHide(app->view);
 			puglFreeView(app->view);
 			app->view = NULL;
 		}
@@ -1100,8 +1102,11 @@ main(int argc, char** argv)
 
 	// Create Vulkan surface for Window
 	PuglVulkanLoader* loader = puglNewVulkanLoader(app.world);
-	if (puglCreateSurface(
-	        loader, app.view, vk->instance, ALLOC_VK, &vk->surface)) {
+	if (puglCreateSurface(puglGetInstanceProcAddrFunc(loader),
+	                      app.view,
+	                      vk->instance,
+	                      ALLOC_VK,
+	                      &vk->surface)) {
 		return logError("Failed to create surface\n");
 	}
 
@@ -1120,7 +1125,7 @@ main(int argc, char** argv)
 	printf("Swapchain images:            %u\n", app.vk.swapchain->nImages);
 
 	PuglFpsPrinter fpsPrinter = {puglGetTime(app.world)};
-	puglShowWindow(app.view);
+	puglShow(app.view);
 	while (!app.quit) {
 		puglUpdate(app.world, -1.0);
 

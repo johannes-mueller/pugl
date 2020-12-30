@@ -14,11 +14,6 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file x11_gl.c
-   @brief OpenGL graphics backend for X11.
-*/
-
 #include "stub.h"
 #include "types.h"
 #include "x11.h"
@@ -207,6 +202,18 @@ PuglGlFunc
 puglGetProcAddress(const char* name)
 {
 	return glXGetProcAddress((const uint8_t*)name);
+}
+
+PuglStatus
+puglEnterContext(PuglView* view)
+{
+	return view->backend->enter(view, NULL);
+}
+
+PuglStatus
+puglLeaveContext(PuglView* view)
+{
+	return view->backend->leave(view, NULL);
 }
 
 const PuglBackend*

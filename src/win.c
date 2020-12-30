@@ -14,11 +14,6 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file win.c
-   @brief Windows implementation.
-*/
-
 #include "win.h"
 
 #include "implementation.h"
@@ -218,9 +213,16 @@ puglRealize(PuglView* view)
 }
 
 PuglStatus
-puglShowWindow(PuglView* view)
+puglShow(PuglView* view)
 {
 	PuglInternals* impl = view->impl;
+
+	if (!impl->hwnd) {
+		const PuglStatus st = puglRealize(view);
+		if (st) {
+			return st;
+		}
+	}
 
 	ShowWindow(impl->hwnd, SW_SHOWNORMAL);
 	SetFocus(impl->hwnd);
@@ -228,7 +230,7 @@ puglShowWindow(PuglView* view)
 }
 
 PuglStatus
-puglHideWindow(PuglView* view)
+puglHide(PuglView* view)
 {
 	PuglInternals* impl = view->impl;
 
@@ -434,7 +436,8 @@ initKeyEvent(PuglEventKey* event,
 static void
 initCharEvent(PuglEvent* event, PuglView* view, WPARAM wParam, LPARAM lParam)
 {
-	const wchar_t utf16[2] = { wParam & 0xFFFF, (wParam >> 16) & 0xFFFF };
+	const wchar_t utf16[2] = {wParam & 0xFFFF,
+	                          (wchar_t)((wParam >> 16) & 0xFFFF)};
 
 	initKeyEvent(&event->key, view, true, wParam, lParam);
 	event->type           = PUGL_TEXT;

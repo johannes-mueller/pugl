@@ -15,11 +15,6 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file mac.m
-   @brief MacOS implementation.
-*/
-
 #define GL_SILENCE_DEPRECATION 1
 
 #include "mac.h"
@@ -1007,8 +1002,15 @@ puglRealize(PuglView* view)
 }
 
 PuglStatus
-puglShowWindow(PuglView* view)
+puglShow(PuglView* view)
 {
+	if (!view->impl->wrapperView) {
+		const PuglStatus st = puglRealize(view);
+		if (st) {
+			return st;
+		}
+	}
+
 	if (![view->impl->window isVisible]) {
 		[view->impl->window setIsVisible:YES];
 		[view->impl->drawView setNeedsDisplay: YES];
@@ -1019,7 +1021,7 @@ puglShowWindow(PuglView* view)
 }
 
 PuglStatus
-puglHideWindow(PuglView* view)
+puglHide(PuglView* view)
 {
 	[view->impl->window setIsVisible:NO];
 	return PUGL_SUCCESS;

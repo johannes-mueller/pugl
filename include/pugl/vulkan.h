@@ -14,12 +14,10 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file vulkan.h Vulkan-specific API.
-
-   Note that this header includes Vulkan headers, so if you are writing a
-   program or plugin that dynamically loads vulkan, you should first define
-   `VK_NO_PROTOTYPES` before including it.
+/*
+  Note that this header includes Vulkan headers, so if you are writing a
+  program or plugin that dynamically loads vulkan, you should first define
+  `VK_NO_PROTOTYPES` before including it.
 */
 
 #ifndef PUGL_VULKAN_H
@@ -117,7 +115,7 @@ puglGetInstanceExtensions(uint32_t* count);
 /**
    Create a Vulkan surface for a Pugl view.
 
-   @param loader The loader for Vulkan functions.
+   @param vkGetInstanceProcAddr Accessor for Vulkan functions.
    @param view The view the surface is to be displayed on.
    @param instance The Vulkan instance.
    @param allocator Vulkan allocation callbacks, may be NULL.
@@ -125,7 +123,7 @@ puglGetInstanceExtensions(uint32_t* count);
    @return `VK_SUCCESS` on success, or a Vulkan error code.
 */
 PUGL_API VkResult
-puglCreateSurface(const PuglVulkanLoader*      loader,
+puglCreateSurface(PFN_vkGetInstanceProcAddr    vkGetInstanceProcAddr,
                   PuglView*                    view,
                   VkInstance                   instance,
                   const VkAllocationCallbacks* allocator,

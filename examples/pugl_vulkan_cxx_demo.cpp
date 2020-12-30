@@ -14,21 +14,21 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file pugl_vulkan_cxx_demo.cpp
-   @brief An example of drawing with Vulkan.
+/*
+  An example of drawing with Vulkan.
 
-   This is an example of using Vulkan for pixel-perfect 2D drawing.  It uses
-   the same data and shaders as pugl_shader_demo.c and attempts to draw the
-   same thing, except using Vulkan.
+  This is an example of using Vulkan for pixel-perfect 2D drawing.  It uses
+  the same data and shaders as pugl_shader_demo.c and attempts to draw the
+  same thing, except using Vulkan.
 
-   Since Vulkan is a complicated and very verbose API, this example is
-   unfortunately much larger than the others.  You should not use this as a
-   resource to learn Vulkan, but it provides a decent demo of using Vulkan with
-   Pugl that works nicely on all supported platforms.
+  Since Vulkan is a complicated and very verbose API, this example is
+  unfortunately much larger than the others.  You should not use this as a
+  resource to learn Vulkan, but it provides a decent demo of using Vulkan with
+  Pugl that works nicely on all supported platforms.
 */
 
 #include "demo_utils.h"
+#include "file_utils.h"
 #include "rects.h"
 #include "test/test_utils.h"
 
@@ -151,7 +151,9 @@ struct RectData {
 
 /// Shader modules for drawing rectangles
 struct RectShaders {
-	VkResult init(const sk::VulkanApi& vk, const GraphicsDevice& gpu);
+	VkResult init(const sk::VulkanApi&  vk,
+	              const GraphicsDevice& gpu,
+	              const std::string&    programPath);
 
 	sk::ShaderModule vert{};
 	sk::ShaderModule frag{};
@@ -417,8 +419,11 @@ GraphicsDevice::init(const pugl::VulkanLoader& loader,
 
 	// Create a Vulkan surface for the window using the Pugl API
 	VkSurfaceKHR surfaceHandle = {};
-	if ((r = pugl::createSurface(
-	         loader, view, context.instance, nullptr, &surfaceHandle))) {
+	if ((r = pugl::createSurface(loader.getInstanceProcAddrFunc(),
+	                             view,
+	                             context.instance,
+	                             nullptr,
+	                             &surfaceHandle))) {
 		return r;
 	}
 
@@ -685,12 +690,19 @@ RenderPass::init(const sk::VulkanApi&  vk,
 }
 
 std::vector<uint32_t>
-readFile(const std::string& filename)
+readFile(const char* const programPath, const std::string& filename)
 {
-	std::unique_ptr<FILE, decltype(&fclose)> file{fopen(filename.c_str(), "rb"),
+	std::unique_ptr<char, decltype(&free)> path{resourcePath(programPath,
+	                                                         filename.c_str()),
+	                                            &free};
+
+	std::cerr << "Loading shader:           " << path.get() << std::endl;
+
+	std::unique_ptr<FILE, decltype(&fclose)> file{fopen(path.get(), "rb"),
 	                                              &fclose};
 
 	if (!file) {
+		std::cerr << "Failed to open file '" << filename << "'\n";
 		return {};
 	}
 
@@ -723,10 +735,15 @@ createShaderModule(const sk::VulkanApi&         vk,
 }
 
 VkResult
-RectShaders::init(const sk::VulkanApi& vk, const GraphicsDevice& gpu)
+RectShaders::init(const sk::VulkanApi&  vk,
+                  const GraphicsDevice& gpu,
+                  const std::string&    programPath)
 {
-	auto vertShaderCode = readFile("build/shaders/rect.vert.spv");
-	auto fragShaderCode = readFile("build/shaders/rect.frag.spv");
+	auto vertShaderCode = readFile(programPath.c_str(),
+	                               "shaders/rect.vert.spv");
+
+	auto fragShaderCode = readFile(programPath.c_str(),
+	                               "shaders/rect.frag.spv");
 
 	if (vertShaderCode.empty() || fragShaderCode.empty()) {
 		return VK_ERROR_INITIALIZATION_FAILED;
@@ -1382,7 +1399,11 @@ public:
 		setEventHandler(*this);
 	}
 
-	using pugl::View::onEvent;
+	template<PuglEventType t, class Base>
+	pugl::Status onEvent(const pugl::Event<t, Base>&) noexcept
+	{
+		return pugl::Status::success;
+	}
 
 	pugl::Status onEvent(const pugl::ConfigureEvent& event);
 	pugl::Status onEvent(const pugl::UpdateEvent& event);
@@ -1400,8 +1421,11 @@ private:
 class PuglVulkanDemo
 {
 public:
-	PuglVulkanDemo(const PuglTestOptions& o, size_t numRects);
+	PuglVulkanDemo(const char*            executablePath,
+	               const PuglTestOptions& o,
+	               size_t                 numRects);
 
+	const char*        programPath;
 	PuglTestOptions    opts;
 	pugl::World        world;
 	pugl::VulkanLoader loader;
@@ -1429,10 +1453,12 @@ makeRects(const size_t numRects, const uint32_t windowWidth)
 	return rects;
 }
 
-PuglVulkanDemo::PuglVulkanDemo(const PuglTestOptions& o, const size_t numRects)
-    : opts{o}
-    , world{pugl::WorldType::program,
-            static_cast<pugl::WorldFlags>(pugl::WorldFlag::threads)} // FIXME?
+PuglVulkanDemo::PuglVulkanDemo(const char* const      executablePath,
+                               const PuglTestOptions& o,
+                               const size_t           numRects)
+    : programPath{executablePath}
+    , opts{o}
+    , world{pugl::WorldType::program, pugl::WorldFlag::threads}
     , loader{world}
     , view{world, *this}
     , rects{makeRects(numRects, extent.width)}
@@ -1726,9 +1752,11 @@ VulkanContext::init(pugl::VulkanLoader& loader, const PuglTestOptions& opts)
 }
 
 int
-run(const PuglTestOptions opts, const size_t numRects)
+run(const char* const     programPath,
+    const PuglTestOptions opts,
+    const size_t          numRects)
 {
-	PuglVulkanDemo app{opts, numRects};
+	PuglVulkanDemo app{programPath, opts, numRects};
 
 	VkResult   r      = VK_SUCCESS;
 	const auto width  = static_cast<int>(app.extent.width);
@@ -1772,7 +1800,7 @@ run(const PuglTestOptions opts, const size_t numRects)
 	}
 
 	// Load shader modules
-	if ((r = app.rectShaders.init(vk, app.gpu))) {
+	if ((r = app.rectShaders.init(vk, app.gpu, app.programPath))) {
 		return logError("Failed to load shaders (%s)\n", sk::string(r));
 	}
 
@@ -1801,7 +1829,7 @@ run(const PuglTestOptions opts, const size_t numRects)
 	const double timeout       = app.opts.sync ? frameDuration : 0.0;
 
 	PuglFpsPrinter fpsPrinter = {app.world.time()};
-	app.view.showWindow();
+	app.view.show();
 	while (!app.quit) {
 		app.world.update(timeout);
 		puglPrintFps(app.world.cobj(), &fpsPrinter, &app.framesDrawn);
@@ -1820,9 +1848,10 @@ int
 main(int argc, char** argv)
 {
 	// Parse command line options
-	const PuglTestOptions opts = puglParseTestOptions(&argc, &argv);
+	const char* const     programPath = argv[0];
+	const PuglTestOptions opts        = puglParseTestOptions(&argc, &argv);
 	if (opts.help) {
-		puglPrintTestUsage(argv[0], "");
+		puglPrintTestUsage(programPath, "");
 		return 0;
 	}
 
@@ -1838,5 +1867,5 @@ main(int argc, char** argv)
 	}
 
 	// Run application
-	return run(opts, static_cast<size_t>(numRects));
+	return run(programPath, opts, static_cast<size_t>(numRects));
 }

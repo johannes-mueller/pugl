@@ -14,11 +14,6 @@
   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-/**
-   @file pugl.hpp
-   @brief Pugl C++ API wrapper.
-*/
-
 #ifndef PUGL_PUGL_HPP
 #define PUGL_PUGL_HPP
 
@@ -36,9 +31,7 @@ namespace pugl {
 
 /**
    @defgroup puglxx Pugl C++ API
-   C++ API wrapper.
-
-   @ingroup pugldoc
+   Pugl C++ API wrapper.
    @{
 */
 
@@ -88,7 +81,7 @@ private:
 using Rect = PuglRect; ///< @copydoc PuglRect
 
 /**
-   @name Events
+   @defgroup eventsxx Events
    @{
 */
 
@@ -104,8 +97,10 @@ using Rect = PuglRect; ///< @copydoc PuglRect
 */
 template<PuglEventType t, class Base>
 struct Event final : Base {
+	/// The type of the corresponding C event structure
 	using BaseEvent = Base;
 
+	/// The `type` field of the corresponding C event structure
 	static constexpr const PuglEventType type = t;
 };
 
@@ -188,7 +183,7 @@ using LoopLeaveEvent = Event<PUGL_LOOP_LEAVE, PuglEventLoopLeave>;
 
 /**
    @}
-   @name Status
+   @defgroup statusxx Status
    @{
 */
 
@@ -219,7 +214,7 @@ strerror(const Status status) noexcept
 
 /**
    @}
-   @name World
+   @defgroup worldxx World
    @{
 */
 
@@ -266,6 +261,17 @@ private:
 #elif defined(PUGL_HPP_ASSERT_CONSTRUCTION)
 #	define PUGL_CHECK_CONSTRUCTION(cond, msg) assert(cond);
 #else
+/**
+   Configurable macro for handling construction failure.
+
+   If `PUGL_HPP_THROW_FAILED_CONSTRUCTION` is defined, then this throws a
+   `pugl::FailedConstructionError` if construction fails.
+
+   If `PUGL_HPP_ASSERT_CONSTRUCTION` is defined, then this asserts if
+   construction fails.
+
+   Otherwise, this does nothing.
+*/
 #	define PUGL_CHECK_CONSTRUCTION(cond, msg)
 #endif
 
@@ -281,14 +287,21 @@ public:
 
 	~World() = default;
 
-	explicit World(WorldType type, WorldFlags flags)
+	World(WorldType type, WorldFlag flag)
+	    : Wrapper{puglNewWorld(static_cast<PuglWorldType>(type),
+	                           static_cast<PuglWorldFlags>(flag))}
+	{
+		PUGL_CHECK_CONSTRUCTION(cobj(), "Failed to create pugl::World");
+	}
+
+	World(WorldType type, WorldFlags flags)
 	    : Wrapper{puglNewWorld(static_cast<PuglWorldType>(type), flags)}
 	{
 		PUGL_CHECK_CONSTRUCTION(cobj(), "Failed to create pugl::World");
 	}
 
 	explicit World(WorldType type)
-	    : World{type, {}}
+	    : World{type, WorldFlags{}}
 	{}
 
 	/// @copydoc puglGetNativeWorld
@@ -312,7 +325,7 @@ public:
 
 /**
    @}
-   @name View
+   @defgroup viewxx View
    @{
 */
 
@@ -507,16 +520,16 @@ public:
 		return static_cast<Status>(puglRealize(cobj()));
 	}
 
-	/// @copydoc puglShowWindow
-	Status showWindow() noexcept
+	/// @copydoc puglShow
+	Status show() noexcept
 	{
-		return static_cast<Status>(puglShowWindow(cobj()));
+		return static_cast<Status>(puglShow(cobj()));
 	}
 
-	/// @copydoc puglHideWindow
-	Status hideWindow() noexcept
+	/// @copydoc puglHide
+	Status hide() noexcept
 	{
-		return static_cast<Status>(puglHideWindow(cobj()));
+		return static_cast<Status>(puglHide(cobj()));
 	}
 
 	/// @copydoc puglGetVisible
@@ -587,125 +600,6 @@ public:
 	Status stopTimer(const uintptr_t id) noexcept
 	{
 		return static_cast<Status>(puglStopTimer(cobj(), id));
-	}
-
-	/**
-	   @}
-	   @name Event Handlers
-	   Methods called when events are dispatched to the view.
-
-	   For convenience, the methods defined here are all trivial stubs that
-	   return success.
-	   @{
-	*/
-
-	static Status onEvent(const CreateEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const DestroyEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const ConfigureEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const MapEvent&) noexcept { return Status::success; }
-
-	static Status onEvent(const UnmapEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const UpdateEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const ExposeEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const CloseEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const FocusInEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const FocusOutEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const KeyPressEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const KeyReleaseEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const TextEvent&) noexcept { return Status::success; }
-
-	static Status onEvent(const PointerInEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const PointerOutEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const ButtonPressEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const ButtonReleaseEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const MotionEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const ScrollEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const ClientEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const TimerEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const LoopEnterEvent&) noexcept
-	{
-		return Status::success;
-	}
-
-	static Status onEvent(const LoopLeaveEvent&) noexcept
-	{
-		return Status::success;
 	}
 
 	/**
